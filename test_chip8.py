@@ -104,7 +104,7 @@ class Chip8_Test(unittest.TestCase):
         # PC should be 0x234
         self.assertEqual(self.chip8.registers["pc"], 0x234)
 
-    def test_op_2nnn(self):
+    def test_call_addr(self):
         """
         Test Opcode 2nnn - CALL addr
         
@@ -237,7 +237,7 @@ class Chip8_Test(unittest.TestCase):
 
     def test_ld_to_reg(self):
         """
-        Opcode 6xkk - LD Vx, byte
+        Test Opcode 6xkk - LD Vx, byte
         
         Load byte into Vx.
         """
@@ -253,9 +253,11 @@ class Chip8_Test(unittest.TestCase):
         # PC should be 0x202
         self.assertEqual(self.chip8.registers["pc"], 0x202)
 
-    def test_op_7xkk(self):
+    def test_add_byte_to_reg(self):
         """
-        Test opcode 7xkk
+        Test Opcode 7xkk - ADD Vx, byte
+        
+        Add byte to Vx.
         """
 
         self.chip8.memory[0x200] = 0x71
@@ -271,9 +273,11 @@ class Chip8_Test(unittest.TestCase):
         # PC should be 0x202
         self.assertEqual(self.chip8.registers["pc"], 0x202)
 
-    def test_op_8xy0(self):
+    def test_ld_reg_to_reg(self):
         """
-        Test opcode 8xy0
+        Test Opcode 8xy0 - LD Vx, Vy
+        
+        Load Vy into Vx.
         """
 
         self.chip8.memory[0x200] = 0x81
@@ -290,9 +294,11 @@ class Chip8_Test(unittest.TestCase):
         # PC should be 0x202
         self.assertEqual(self.chip8.registers["pc"], 0x202)
 
-    def test_op_8xy1(self):
+    def test_or_regs(self):
         """
-        Test opcode 8xy1
+        Test Opcode 8xy1 - OR Vx, Vy
+        
+        Or Vx and Vy. Set Vx to result.
         """
 
         self.chip8.memory[0x200] = 0x81
@@ -309,9 +315,11 @@ class Chip8_Test(unittest.TestCase):
         # PC should be 0x202
         self.assertEqual(self.chip8.registers["pc"], 0x202)
 
-    def test_op_8xy2(self):
+    def test_and_regs(self):
         """
-        Test opcode 8xy2
+        Test Opcode 8xy2 - AND Vx, Vy
+        
+        And Vx and Vy. Set Vx to result.
         """
 
         self.chip8.memory[0x200] = 0x81
@@ -328,9 +336,11 @@ class Chip8_Test(unittest.TestCase):
         # PC should be 0x202
         self.assertEqual(self.chip8.registers["pc"], 0x202)
 
-    def test_op_8xy3(self):
+    def test_xor_regs(self):
         """
-        Test opcode 8xy3
+        Test Opcode 8xy3 - XOR Vx, Vy
+        
+        Xor Vx and Vy. Set Vx to result.
         """
 
         self.chip8.memory[0x200] = 0x81
@@ -347,9 +357,13 @@ class Chip8_Test(unittest.TestCase):
         # PC should be 0x202
         self.assertEqual(self.chip8.registers["pc"], 0x202)
 
-    def test_op_8xy4_no_carry(self):
+    def test_add_regs_no_carry(self):
         """
-        Test opcode 8xy4 without carry
+        Test Opcode 8xy4 - ADD Vx, Vy
+        Test without carry
+        
+        Add Vx and Vy. Set Vx to result.
+        Set VF to 1 if there is a carry, 0 otherwise.
         """
 
         self.chip8.memory[0x200] = 0x81
@@ -369,9 +383,13 @@ class Chip8_Test(unittest.TestCase):
         # PC should be 0x202
         self.assertEqual(self.chip8.registers["pc"], 0x202)
 
-    def test_op_8xy4_carry(self):
+    def test_add_regs_carry(self):
         """
-        Test opcode 8xy4 with carry by exceeding 0xFF
+        Test Opcode 8xy4 - ADD Vx, Vy
+        Test with carry
+        
+        Add Vx and Vy. Set Vx to result.
+        Set VF to 1 if there is a carry, 0 otherwise.
         """
 
         self.chip8.memory[0x200] = 0x81
@@ -391,9 +409,13 @@ class Chip8_Test(unittest.TestCase):
         # PC should be 0x202
         self.assertEqual(self.chip8.registers["pc"], 0x202)
 
-    def test_op_8xy4_carry_fail(self):
+    def test_add_regs_carry_fail(self):
         """
-        Test opcode 8xy4 with carry by exceeding 0xFF and ensuring result is not greater than
+        Test Opcode 8xy4 - ADD Vx, Vy
+        Test carry failing
+        
+        Add Vx and Vy. Set Vx to result.
+        Set VF to 1 if there is a carry, 0 otherwise.
         """
 
         self.chip8.memory[0x200] = 0x81
@@ -413,10 +435,13 @@ class Chip8_Test(unittest.TestCase):
         # PC should be 0x202
         self.assertEqual(self.chip8.registers["pc"], 0x202)
 
-    def test_op_8xy5_no_carry(self):
+    def test_sub_regs_no_borrow(self):
         """
-        Test opcode 8xy5 without carry
-        VF is carry when 0
+        Test Opcode 8xy5 - SUB Vx, Vy
+        Test without borrow
+        
+        Subtract Vx from Vy. Set Vx to result.
+        Set VF to 1 if there is no borrow, 0 otherwise.
         """
 
         self.chip8.memory[0x200] = 0x81
@@ -436,10 +461,13 @@ class Chip8_Test(unittest.TestCase):
         # PC should be 0x202
         self.assertEqual(self.chip8.registers["pc"], 0x202)
 
-    def test_op_8xy5_carry(self):
+    def test_sub_regs_borrow(self):
         """
-        Test opcode 8xy5 with carry
-        VF is carry when 0
+        Test Opcode 8xy5 - SUB Vx, Vy
+        Test with borrow
+        
+        Subtract Vx from Vy. Set Vx to result.
+        Set VF to 1 if there is no borrow, 0 otherwise.
         """
 
         self.chip8.memory[0x200] = 0x81
@@ -459,9 +487,11 @@ class Chip8_Test(unittest.TestCase):
         # PC should be 0x202
         self.assertEqual(self.chip8.registers["pc"], 0x202)
 
-    def test_op_8xy6(self):
+    def test_right_shift_reg(self):
         """
-        Test opcode 8xy6
+        Test Opcode 8xy6 - SHR Vx {, Vy}
+        
+        Right shift Vx. Set Vx to result.
         """
 
         self.chip8.memory[0x200] = 0x81
@@ -480,10 +510,15 @@ class Chip8_Test(unittest.TestCase):
         # PC should be 0x202
         self.assertEqual(self.chip8.registers["pc"], 0x202)
 
-    def test_op_8xy7(self):
+    def test_reverse_sub_regs_no_borrow(self):
         """
-        Test opcode 8xy7
+        Test Opcode 8xy7 - SUBN Vx, Vy
+        Test without borrow
+        
+        Subtract Vy from Vx. Set Vx to result.
+        Set VF to 1 if there is no borrow, 0 otherwise.
         """
+
 
         self.chip8.memory[0x200] = 0x81
         self.chip8.memory[0x201] = 0x27
@@ -502,9 +537,13 @@ class Chip8_Test(unittest.TestCase):
         # PC should be 0x202
         self.assertEqual(self.chip8.registers["pc"], 0x202)
 
-    def test_op8xyE_no_carry(self):
+    def test_reverse_sub_regs_borrow(self):
         """
-        Test opcode 8xyE
+        Test Opcode 8xy7 - SUBN Vx, Vy
+        Test with borrow
+        
+        Subtract Vy from Vx. Set Vx to result.
+        Set VF to 1 if there is no borrow, 0 otherwise.
         """
 
         self.chip8.memory[0x200] = 0x81
@@ -523,10 +562,13 @@ class Chip8_Test(unittest.TestCase):
         # PC should be 0x202
         self.assertEqual(self.chip8.registers["pc"], 0x202)
 
-    def test_op8xyE_carry(self):
+    def test_left_shift_reg_carry(self):
         """
-        Test opcode 8xyE
-        Set most significant bit to 1 to test carry
+        Test Opcode 8xyE - SHL Vx {, Vy}
+        Test with carry
+        
+        Shift Vx left. Set Vx to result.
+        Set VF to 1 if most significant bit is set, 0 otherwise.
         """
 
         self.chip8.memory[0x200] = 0x81
@@ -544,10 +586,14 @@ class Chip8_Test(unittest.TestCase):
 
         # PC should be 0x202
         self.assertEqual(self.chip8.registers["pc"], 0x202)
+        
+    # TODO: Add test without carry
 
-    def test_op_Dxyn(self):
+    def test_draw_bytes(self):
         """
-        Test opcode Dxyn
+        Test Opcode Dxyn - DRW Vx, Vy, nibble
+        
+        Draws a sprite at coordinate (Vx, Vy) with width 8 pixels and height n pixels.
         """
 
         self.chip8.create_display()

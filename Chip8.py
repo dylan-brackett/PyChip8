@@ -386,6 +386,8 @@ class Chip8:
     def add_byte_to_reg(self, opcode_nibbles):
         """
         Opcode 7xkk - ADD Vx, byte
+        
+        Add byte to Vx.
         """
 
         self.registers["v"][opcode_nibbles["second_nibble"]] += opcode_nibbles["last_byte"]
@@ -393,6 +395,8 @@ class Chip8:
     def ld_reg_to_reg(self, opcode_nibbles):
         """
         Opcode 8xy0 - LD Vx, Vy
+        
+        Load Vy into Vx.
         """
 
         self.registers["v"][opcode_nibbles["second_nibble"]] = self.registers["v"][
@@ -402,6 +406,8 @@ class Chip8:
     def or_regs(self, opcode_nibbles):
         """
         Opcode 8xy1 - OR Vx, Vy
+        
+        Or Vx and Vy. Set Vx to result.
         """
 
         self.registers["v"][opcode_nibbles["second_nibble"]] |= self.registers["v"][
@@ -411,6 +417,8 @@ class Chip8:
     def and_regs(self, opcode_nibbles):
         """
         Opcode 8xy2 - AND Vx, Vy
+        
+        And Vx and Vy. Set Vx to result.
         """
 
         self.registers["v"][opcode_nibbles["second_nibble"]] &= self.registers["v"][
@@ -420,6 +428,8 @@ class Chip8:
     def xor_regs(self, opcode_nibbles):
         """
         Opcode 8xy3 - XOR Vx, Vy
+        
+        Xor Vx and Vy. Set Vx to result.
         """
 
         self.registers["v"][opcode_nibbles["second_nibble"]] ^= self.registers["v"][
@@ -429,6 +439,9 @@ class Chip8:
     def add_regs(self, opcode_nibbles):
         """
         Opcode 8xy4 - ADD Vx, Vy
+        
+        Add Vx and Vy. Set Vx to result.
+        Set VF to 1 if there is a carry, 0 otherwise.
         """
 
         if (
@@ -443,9 +456,13 @@ class Chip8:
         ]
         self.registers["v"][opcode_nibbles["second_nibble"]] &= 0xFF
 
+    # TODO: Reimplement this
     def sub_regs(self, opcode_nibbles):
         """
         Opcode 8xy5 - SUB Vx, Vy
+        
+        Subtract Vx from Vy. Set Vx to result.
+        Set VF to 1 if there is no borrow, 0 otherwise.
         """
 
         if (
@@ -464,15 +481,21 @@ class Chip8:
     def right_shift_reg(self, opcode_nibbles):
         """
         Opcode 8xy6 - SHR Vx {, Vy}
+        
+        Right shift Vx. Set Vx to result.
         """
 
         self.registers["v"][0xF] = self.registers["v"][opcode_nibbles["second_nibble"]] & 0x1
         self.registers["v"][opcode_nibbles["second_nibble"]] >>= 1
         self.registers["v"][opcode_nibbles["second_nibble"]] &= 0xFF
 
+    # TODO: Reimplement this
     def reverse_sub_regs(self, opcode_nibbles):
         """
         Opcode 8xy7 - SUBN Vx, Vy
+        
+        Subtract Vy from Vx. Set Vx to result.
+        Set VF to 1 if there is no borrow, 0 otherwise.
         """
 
         if (
@@ -491,6 +514,9 @@ class Chip8:
     def left_shift_reg(self, opcode_nibbles):
         """
         Opcode 8xyE - SHL Vx {, Vy}
+        
+        Shift Vx left. Set Vx to result.
+        Set VF to 1 if most significant bit is set, 0 otherwise.
         """
 
         self.registers["v"][0xF] = (self.registers["v"][opcode_nibbles["second_nibble"]] & 0x80) >> 7
@@ -536,6 +562,8 @@ class Chip8:
     def draw_bytes(self, opcode_nibbles):
         """
         Opcode Dxyn - DRW Vx, Vy, nibble
+        
+        Draws a sprite at coordinate (Vx, Vy) with width 8 pixels and height n pixels.
         """
 
         # Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
