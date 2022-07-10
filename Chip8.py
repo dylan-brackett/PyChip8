@@ -9,6 +9,8 @@ from time import sleep
 
 import pygame
 
+from Chip8Display import Chip8Display
+
 
 class InvalidLookup(Exception):
     """
@@ -34,9 +36,11 @@ class Chip8:
         self.MEMORY_SIZE = 4096
         self.NUM_REGISTERS = 16
         self.START_ADDR = 0x200
+        self.DISPLAY_WIDTH = 64
+        self.DISPLAY_HEIGHT = 32
         
         ###########################
-        # CHIP8 STATE
+        # VARIABLES
         ###########################
         
         self.memory = [0] * self.MEMORY_SIZE
@@ -54,6 +58,8 @@ class Chip8:
             "delay": 0x00,
             "sound": 0x00,
         }
+        
+        self.display = None
 
         ###########################
         # OPCODE LOOKUP TABLES
@@ -111,9 +117,13 @@ class Chip8:
         
 
         self.load_fontset()
-
-        self.display = None
-        self.SCALE = 10
+        
+    def create_display(self):
+        """
+        Create a pygame display.
+        """
+        self.display = Chip8Display(self.DISPLAY_WIDTH, self.DISPLAY_HEIGHT)
+        self.display.create_display()
         
     def validate_lookup(self, lookup_table, nibble):
         """
@@ -224,37 +234,6 @@ class Chip8:
         opcode = self.fetch_opcode()
         self.execute_opcode(opcode)
 
-    # Create pygame display
-    def create_display(self):
-        self.display = pygame.display.set_mode((64 * self.SCALE, 32 * self.SCALE))
-        self.display.fill((0, 0, 0))
-        self.update_display()
-
-    def draw_pixel(self, x, y, color):
-        pygame.draw.rect(
-            self.display,
-            color,
-            (x * self.SCALE, y * self.SCALE, self.SCALE, self.SCALE),
-        )
-        self.update_display()
-
-    # Xor x,y with location on screen
-    def surface_xor(
-        self,
-        bit,
-        x,
-        y,
-    ):
-
-        if self.display.get_at((x * self.SCALE, y * self.SCALE)) == (0, 0, 0):
-            pixel_present = False
-        else:
-            pixel_present = True
-
-        return pixel_present ^ bit
-
-    def update_display(self):
-        pygame.display.update()
 
     # Main emulator loop
     def main_loop(self):
@@ -566,28 +545,20 @@ class Chip8:
         Draws a sprite at coordinate (Vx, Vy) with width 8 pixels and height n pixels.
         """
 
-        # Display n-byte sprite starting at memory location I at (Vx, Vy), set VF = collision.
-        for i in range(opcode_nibbles["fourth_nibble"]):
-            sprite = self.memory[self.i + i]
-            for j in range(8):
-                sprite_bit = sprite & (0x80 >> j)
-                if sprite_bit:
-                    # Wrap x around screen
-                    x_wrap = (
-                        self.registers["v"][opcode_nibbles["second_nibble"]] + j + (8 * i)
-                    ) % (self.display.get_width() / self.SCALE)
-                    x_wrap = int(x_wrap)
+        num_bytes_to_draw = opcode_nibbles["fourth_nibble"]
+        x_pos = self.registers["v"][opcode_nibbles["second_nibble"]]
+        y_pos = self.registers["v"][opcode_nibbles["third_nibble"]]
 
-                    if self.surface_xor(
-                        sprite_bit, x_wrap, self.registers["v"][opcode_nibbles["third_nibble"]]
-                    ):
-                        self.draw_pixel(
-                            x_wrap,
-                            self.registers["v"][opcode_nibbles["third_nibble"]],
-                            (255, 255, 255),
-                        )
-                else:
-                    self.registers["v"][0xF] = 0
+        overwritten = False
+
+        for i in range(num_bytes_to_draw):
+            byte_to_draw = self.memory[self.registers["i"] + i]
+            draw_byte_ret_val = self.display.draw_byte(x_pos, y_pos + i, byte_to_draw)
+
+            if draw_byte_ret_val:
+                overwritten = True
+
+        self.registers["v"][0xF] = 1 if overwritten else 0
 
   
     def skip_on_keypress(self, opcode_nibbles):
