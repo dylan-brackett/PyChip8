@@ -39,6 +39,25 @@ class Chip8:
         self.DISPLAY_WIDTH = 64
         self.DISPLAY_HEIGHT = 32
         
+        self.KEY_MAPPINGS = {
+            0x1: pygame.K_1,
+            0x2: pygame.K_2,
+            0x3: pygame.K_3,
+            0xC: pygame.K_4,
+            0x4: pygame.K_q,
+            0x5: pygame.K_w,
+            0x6: pygame.K_e,
+            0xD: pygame.K_r,
+            0x7: pygame.K_a,
+            0x8: pygame.K_s,
+            0x9: pygame.K_d,
+            0xE: pygame.K_f,
+            0xA: pygame.K_z,
+            0x0: pygame.K_x,
+            0xB: pygame.K_c,
+            0xF: pygame.K_v
+        }
+        
         ###########################
         # VARIABLES
         ###########################
@@ -124,6 +143,19 @@ class Chip8:
         """
         self.display = Chip8Display(self.DISPLAY_WIDTH, self.DISPLAY_HEIGHT)
         self.display.create_display()
+        
+    def is_key_pressed(self, key):
+        """
+        Check if a key is pressed.
+        
+        :param key: Key to check
+        
+        :return: True if key is pressed, False otherwise
+        """
+        
+        keys_pressed = pygame.key.get_pressed()
+
+        return bool(keys_pressed[self.KEY_MAPPINGS[key]])
         
     def validate_lookup(self, lookup_table, nibble):
         """
@@ -498,7 +530,9 @@ class Chip8:
         Set VF to 1 if most significant bit is set, 0 otherwise.
         """
 
-        self.registers["v"][0xF] = (self.registers["v"][opcode_nibbles["second_nibble"]] & 0x80) >> 7
+        self.registers["v"][0xF] = \
+            (self.registers["v"][opcode_nibbles["second_nibble"]] & 0x80) >> 7
+            
         self.registers["v"][opcode_nibbles["second_nibble"]] <<= 1
         self.registers["v"][opcode_nibbles["second_nibble"]] &= 0xFF
 
@@ -566,8 +600,11 @@ class Chip8:
         TODO
         Opcode Ex9E - SKP Vx
         """
-
-        pass
+    
+        key = self.registers["v"][opcode_nibbles["second_nibble"]]
+        if self.is_key_pressed(key):
+            self.registers["pc"] += 2
+        
 
     
 

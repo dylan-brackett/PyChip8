@@ -52,6 +52,9 @@ class Chip8Display:
     def is_drawn_pixel_present(self, x_pos, y_pos):
         """
         Returns True if the pixel at (x_pos, y_pos) is already drawn.
+        
+        :param x_pos: x-coordinate of the pixel to check.
+        :param y_pos: y-coordinate of the pixel to check.
         """
         
         return self.display.get_at((x_pos, y_pos)) == self.MAIN_COLOR
