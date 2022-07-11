@@ -5,12 +5,11 @@ Chip8 emulator written in Python
 """
 
 import random
-from time import sleep
 import sys
-import logging
 
 import pygame
 
+from Chip8Debugger import Chip8Debugger
 from Chip8Display import Chip8Display
 
 
@@ -44,6 +43,7 @@ class Chip8:
         self.CLOCK_SPEED = round((1 / 500) * 1000) # Time in milliseconds between each instruction
         self.TIMER_SPEED = round((1 /60) * 1000)   # Time in milliseconds between each timer update
         
+        
         self.FONT_ADDR_START = 0x0
         
         self.KEY_MAPPINGS = {
@@ -65,8 +65,9 @@ class Chip8:
             0xF: pygame.K_v
         }
         
-        logging.basicConfig(level=logging.DEBUG)
-                
+        self.DEBUG = True
+        self.debugger = Chip8Debugger(self)
+
         ###########################
         # VARIABLES
         ###########################
@@ -92,6 +93,8 @@ class Chip8:
         self.timer_clock = pygame.time.Clock()
         
         self.display = None
+
+        self.load_fontset()
 
         ###########################
         # OPCODE LOOKUP TABLES
@@ -155,9 +158,118 @@ class Chip8:
             0x65: self.ld_regs_at_i
         }
         
-
-        self.load_fontset()
         
+    def load_rom(self, file_path):
+        """
+        Load the rom into the internal memory.
+
+        :param file_path: Path to the rom file.
+        """
+        
+        with open(file_path, "rb") as f:
+            rom_data = f.read()
+            self.load_memory(self.START_ADDR, rom_data)
+       
+    def load_memory(self, start_addr, data):
+        """
+        Load the data into memory.
+
+        :param start_addr: Address to start loading data at.
+        :param data: Array of bytes for the data.
+        """
+        
+        self.validate_data_size(start_addr, data)
+        for i in range(len(data)):
+            self.memory[start_addr + i] = data[i]
+
+    def validate_data_size(self, start_addr, data):
+        """
+        Validate that the size of the data is not greater than the memory available.
+
+        :param data: Array of bytes for the rom.
+        
+        :raises DataTooLarge: Data larger than available memory.
+        """
+        
+        if len(data) > (self.MEMORY_SIZE - start_addr):
+                raise DataTooLarge("Data is too large to fit in memory.")
+
+    def main_loop(self):
+        self.create_display()
+        self.init_clocks()
+        
+        while True:
+            self.handle_pygame_events()
+            
+            if self.DEBUG:
+                self.debugger.run()
+            
+            self.emulate_cyle()
+            
+            self.update_timers()
+            self.cpu_clock_delay()
+
+    def create_display(self):
+        """
+        Create a pygame display.
+        """
+        
+        if self.display is None:
+            self.display = Chip8Display(self.DISPLAY_WIDTH, self.DISPLAY_HEIGHT)
+            self.display.create_display()
+
+    def init_clocks(self):
+        self.cpu_clock.tick()
+        self.timer_clock.tick()
+        
+    def handle_pygame_events(self):
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                pygame.quit()
+                quit()
+    
+    def emulate_cyle(self):
+        opcode = self.fetch_opcode()
+        self.execute_opcode(opcode)
+        
+    def fetch_opcode(self):
+        """
+        Fetch the next opcode from memory.
+
+        :return: The next 2 bytes in memory.
+        """
+        
+        return self.memory[self.registers["pc"] : self.registers["pc"] + 2]
+
+    def execute_opcode(self, opcode):
+        opcode_nibbles = self.get_opcode_nibble_dict(opcode)
+                
+        first_nibble = opcode_nibbles["first_nibble"]
+        
+        lookup_function = self.opcode_first_nibble_lookup[first_nibble]
+        lookup_function(opcode_nibbles)
+        
+        # Increase program counter
+        self.registers["pc"] += 2
+      
+    def get_opcode_nibble_dict(self, opcode):
+        """
+        Create dictionary of opcode nibbles and masked bits
+        """
+        
+        combined_opcode = (opcode[0] << 8 | opcode[1]) & 0xFFFF
+        opcode_nibbles = {
+            "all"              : combined_opcode,
+            "first_nibble"      : (combined_opcode & 0xF000) >> 12,
+            "second_nibble"     : (combined_opcode & 0x0F00) >> 8,
+            "third_nibble"      : (combined_opcode & 0x00F0) >> 4,
+            "fourth_nibble"     : combined_opcode & 0x000F,
+            "last_three_nibbles": combined_opcode & 0x0FFF,           # 12 bit data, normally addr
+            "last_byte"         : combined_opcode & 0x00FF            # Last byte in opcode
+        }
+        
+        return opcode_nibbles
+
     def update_timers(self):
         """
         Update the timers.
@@ -170,61 +282,12 @@ class Chip8:
             self.timers["delay"] -= 1
         if self.timers["sound"] > 0:
             self.timers["sound"] -= 1
-        
-    def create_display(self):
-        """
-        Create a pygame display.
-        """
-        
-        if self.display is None:
-            self.display = Chip8Display(self.DISPLAY_WIDTH, self.DISPLAY_HEIGHT)
-            self.display.create_display()
-        
-    def is_key_pressed(self, key):
-        """
-        Check if a key is pressed.
-        
-        :param key: Key to check
-        
-        :return: True if key is pressed, False otherwise
-        """
-        
-        keys_pressed = pygame.key.get_pressed()
 
-        return bool(keys_pressed[self.KEY_MAPPINGS[key]])
-    
-    def wait_and_get_key(self):
-        """
-        Wait for a keypress.
-        
-        :return: Key pressed
-        """
-        while True:
-            for event in pygame.event.get():
-                # Handle quit event
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    sys.exit()
-                # Wait until a valid key is pressed
-                if (event.type == pygame.KEYDOWN) and (event.key in self.KEY_MAPPINGS.values()):
-                    return event.key
-        
-    def validate_lookup(self, lookup_table, nibble):
-        """
-        Check if a lookup table contains a key for the given nibble.
-        Raise exception if not.
-        
-        :param lookup_table: Lookup table to check
-        :param nibble: Nibble to check
-        
-        :raises InvalidLookup: If nibble is not in lookup table
-        """
-        
-        try:
-            lookup_table[nibble]
-        except KeyError as e:
-            raise InvalidLookup(f"{nibble} not found in {str(lookup_table)}.") from e
-    
+    def cpu_clock_delay(self):
+        cpu_clock_ms = self.cpu_clock.tick()
+        if cpu_clock_ms < self.CLOCK_SPEED:
+            pygame.time.delay(self.CLOCK_SPEED - cpu_clock_ms)
+
     def lookup_opcode_0x0(self, opcode_nibbles):
         """
         Lookup opcode beginning with 0x0, running the appropriate function
@@ -281,108 +344,42 @@ class Chip8:
         function_lookup = self.opcode_0xF_last_byte_lookup[last_byte]
         function_lookup(opcode_nibbles)
 
-    def validate_data_size(self, start_addr, data):
+    def validate_lookup(self, lookup_table, nibble):
         """
-        Validate that the size of the data is not greater than the memory available.
-
-        :param data: Array of bytes for the rom.
+        Check if a lookup table contains a key for the given nibble.
+        Raise exception if not.
         
-        :raises DataTooLarge: Data larger than available memory.
-        """
+        :param lookup_table: Lookup table to check
+        :param nibble: Nibble to check
         
-        if len(data) > (self.MEMORY_SIZE - start_addr):
-                raise DataTooLarge("Data is too large to fit in memory.")
-            
-    def load_memory(self, start_addr, data):
-        """
-        Load the data into memory.
-
-        :param start_addr: Address to start loading data at.
-        :param data: Array of bytes for the data.
+        :raises InvalidLookup: If nibble is not in lookup table
         """
         
-        self.validate_data_size(start_addr, data)
-        for i in range(len(data)):
-            self.memory[start_addr + i] = data[i]
-
-    def load_rom(self, file_path):
-        """
-        Load the rom into the internal memory.
-
-        :param file_path: Path to the rom file.
-        """
-        
-        with open(file_path, "rb") as f:
-            rom_data = f.read()
-            self.load_memory(self.START_ADDR, rom_data)
-
-    def fetch_opcode(self):
-        """
-        Fetch the next opcode from memory.
-
-        :return: The next 2 bytes in memory.
-        """
-        
-        return self.memory[self.registers["pc"] : self.registers["pc"] + 2]
-
-    def emulate_cyle(self):
-        opcode = self.fetch_opcode()
-        self.execute_opcode(opcode)
-
-
-    # Main emulator loop
-    def main_loop(self):
-        self.create_display()
-        self.cpu_clock.tick()
-        self.timer_clock.tick()
-        loop_num = 0
-        while True:
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    pygame.quit()
-                    quit()
-            self.emulate_cyle()
-            self.update_timers()
-            
-            cpu_clock_ms = self.cpu_clock.tick()
-            if cpu_clock_ms < self.CLOCK_SPEED:
-                pygame.time.delay(self.CLOCK_SPEED - cpu_clock_ms)
-                
-            loop_num += 1
-
-    def get_opcode_nibble_dict(self, opcode):
-        """
-        Create dictionary of opcode nibbles and masked bits
-        """
-        
-        combined_opcode = (opcode[0] << 8 | opcode[1]) & 0xFFFF
-        opcode_nibbles = {
-            "all"              : combined_opcode,
-            "first_nibble"      : (combined_opcode & 0xF000) >> 12,
-            "second_nibble"     : (combined_opcode & 0x0F00) >> 8,
-            "third_nibble"      : (combined_opcode & 0x00F0) >> 4,
-            "fourth_nibble"     : combined_opcode & 0x000F,
-            "last_three_nibbles": combined_opcode & 0x0FFF,           # 12 bit data, normally addr
-            "last_byte"         : combined_opcode & 0x00FF            # Last byte in opcode
-        }
-        
-        return opcode_nibbles
+        try:
+            lookup_table[nibble]
+        except KeyError as e:
+            raise InvalidLookup(f"{nibble} not found in {str(lookup_table)}.") from e
     
-    # Execute chip8 opcode
-    def execute_opcode(self, opcode):
-        opcode_nibbles = self.get_opcode_nibble_dict(opcode)
-        
-        # Pretty print opcode in hex
-        print("Opcode: 0x{:04X}".format(opcode_nibbles["all"]))
-        
-        first_nibble = opcode_nibbles["first_nibble"]
-        
-        lookup_function = self.opcode_first_nibble_lookup[first_nibble]
-        lookup_function(opcode_nibbles)
-        
-        # Increase program counter
-        self.registers["pc"] += 2
-        
+    def load_fontset(self):
+        self.memory[0x0:0xA0] = [
+            0xF0, 0x90, 0x90, 0x90, 0xF0,  # 0
+            0x20, 0x60, 0x20, 0x20, 0x70,  # 1
+            0xF0, 0x10, 0xF0, 0x80, 0xF0,  # 2
+            0xF0, 0x10, 0xF0, 0x10, 0xF0,  # 3
+            0x90, 0x90, 0xF0, 0x10, 0x10,  # 4
+            0xF0, 0x80, 0xF0, 0x10, 0xF0,  # 5
+            0xF0, 0x80, 0xF0, 0x90, 0xF0,  # 6
+            0xF0, 0x10, 0x20, 0x40, 0x40,  # 7
+            0xF0, 0x90, 0xF0, 0x90, 0xF0,  # 8
+            0xF0, 0x90, 0xF0, 0x10, 0xF0,  # 9
+            0xF0, 0x90, 0xF0, 0x90, 0x90,  # A
+            0xE0, 0x90, 0xE0, 0x90, 0xE0,  # B
+            0xF0, 0x80, 0x80, 0x80, 0xF0,  # C
+            0xE0, 0x90, 0x90, 0x90, 0xE0,  # D
+            0xF0, 0x80, 0xF0, 0x80, 0xF0,  # E
+            0xF0, 0x80, 0xF0, 0x80, 0x80,  # F
+        ]
+
     ###########################
     # Opcode functions
     ###########################
@@ -670,7 +667,6 @@ class Chip8:
 
         self.registers["v"][0xF] = 1 if overwritten else 0
 
-  
     def skip_on_keypress(self, opcode_nibbles):
         """
         Opcode Ex9E - SKP Vx
@@ -693,6 +689,19 @@ class Chip8:
         if not self.is_key_pressed(key):
             self.registers["pc"] += 2
 
+    def is_key_pressed(self, key):
+        """
+        Check if a key is pressed.
+        
+        :param key: Key to check
+        
+        :return: True if key is pressed, False otherwise
+        """
+        
+        keys_pressed = pygame.key.get_pressed()
+
+        return bool(keys_pressed[self.KEY_MAPPINGS[key]])
+
     def ld_reg_with_dly_timer(self, opcode_nibbles):
         """
         Opcode Fx07 - LD Vx, DT
@@ -702,7 +711,6 @@ class Chip8:
 
         self.registers["v"][opcode_nibbles["second_nibble"]] = self.delay_timer
 
-    
     def wait_for_input(self, opcode_nibbles):
         """
         Opcode Fx0A - LD Vx, K
@@ -713,6 +721,22 @@ class Chip8:
         key_pressed = self.wait_and_get_key()
         self.registers["v"][opcode_nibbles["second_nibble"]] = key_pressed
 
+    def wait_and_get_key(self):
+        """
+        Wait for a keypress.
+        
+        :return: Key pressed
+        """
+        while True:
+            for event in pygame.event.get():
+                # Handle quit event
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                # Wait until a valid key is pressed
+                if (event.type == pygame.KEYDOWN) and (event.key in self.KEY_MAPPINGS.values()):
+                    return event.key
+
     def ld_delay_timer_with_reg(self, opcode_nibbles):
         """
         Opcode Fx15 - LD DT, Vx
@@ -722,7 +746,6 @@ class Chip8:
 
         self.timers["delay"] = self.registers["v"][opcode_nibbles["second_nibble"]]
 
-  
     def ld_sound_timer_with_reg(self, opcode_nibbles):
         """
         Opcode Fx18 - LD ST, Vx
@@ -738,8 +761,6 @@ class Chip8:
 
         self.registers["i"] += self.registers["v"][opcode_nibbles["second_nibble"]]
         self.registers["i"] &= 0xFFFF
-
-
 
     def ld_i_font_sprite(self, opcode_nibbles):
         """
@@ -792,26 +813,9 @@ class Chip8:
         for i in range(opcode_nibbles["second_nibble"] + 1):
             self.registers["v"][i] = self.memory[self.registers["i"] + i]
 
-    def load_fontset(self):
-        self.memory[0x0:0xA0] = [
-            0xF0, 0x90, 0x90, 0x90, 0xF0,  # 0
-            0x20, 0x60, 0x20, 0x20, 0x70,  # 1
-            0xF0, 0x10, 0xF0, 0x80, 0xF0,  # 2
-            0xF0, 0x10, 0xF0, 0x10, 0xF0,  # 3
-            0x90, 0x90, 0xF0, 0x10, 0x10,  # 4
-            0xF0, 0x80, 0xF0, 0x10, 0xF0,  # 5
-            0xF0, 0x80, 0xF0, 0x90, 0xF0,  # 6
-            0xF0, 0x10, 0x20, 0x40, 0x40,  # 7
-            0xF0, 0x90, 0xF0, 0x90, 0xF0,  # 8
-            0xF0, 0x90, 0xF0, 0x10, 0xF0,  # 9
-            0xF0, 0x90, 0xF0, 0x90, 0x90,  # A
-            0xE0, 0x90, 0xE0, 0x90, 0xE0,  # B
-            0xF0, 0x80, 0x80, 0x80, 0xF0,  # C
-            0xE0, 0x90, 0x90, 0x90, 0xE0,  # D
-            0xF0, 0x80, 0xF0, 0x80, 0xF0,  # E
-            0xF0, 0x80, 0xF0, 0x80, 0x80,  # F
-        ]
-
+    ###########################
+    # Utility functions
+    ###########################
 
 if __name__ == "__main__":
     x = Chip8()

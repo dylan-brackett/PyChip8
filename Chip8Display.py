@@ -33,14 +33,7 @@ class Chip8Display:
             )
             self.clear_display()
             self.update_display()
-
-    def update_display(self):
-        """
-        Updates the display of the Chip8 emulator.
-        """
-        
-        pygame.display.update()
-
+   
     def clear_display(self):
         """
         Clears the display of the Chip8 emulator.
@@ -49,17 +42,40 @@ class Chip8Display:
         self.display.fill(self.BG_COLOR)
         self.update_display()
         
-    def is_drawn_pixel_present(self, x_pos, y_pos):
+    def update_display(self):
         """
-        Returns True if the pixel at (x_pos, y_pos) is already drawn.
-        
-        :param x_pos: x-coordinate of the pixel to check.
-        :param y_pos: y-coordinate of the pixel to check.
+        Updates the display of the Chip8 emulator.
         """
         
-        return self.display.get_at((x_pos, y_pos)) == self.MAIN_COLOR
+        pygame.display.update()
+
+    def draw_byte(self, x_pos, y_pos, byte):
+        """
+        Opcode Dxyn - DRW Vx, Vy, nibble
         
+        Draws a sprite at coordinate (Vx, Vy) with width 8 pixels and height n pixels.
         
+        :param x_pos: x-coordinate of the sprite to draw.
+        :param y_pos: y-coordinate of the sprite to draw.
+        :param byte: The byte to draw.
+        
+        :return: True if pixel was overwritten, False otherwise.
+        """
+        overwritten = False
+        for i in range(8):
+            if self.is_bit_set(byte, i):
+                # Wrap pixel around the screen if it goes out of bounds
+                new_x_pos = (x_pos + i) % self.width
+                # Adjust y_pos if out of range values are passed
+                new_y_pos = (y_pos) % self.height
+                
+                draw_ret_val = self.draw_pixel(new_x_pos, new_y_pos)
+                
+                if draw_ret_val:
+                    overwritten = True
+        
+        return overwritten
+
     def is_bit_set(self, byte, index):
         """
         Returns True if the bit at index is set in byte.
@@ -74,8 +90,7 @@ class Chip8Display:
             raise ValueError("Index must be between 0 and 7")
         
         return (byte & (1 << (7 - index))) != 0
-
-
+    
     def draw_pixel(self, x_pos, y_pos):
         """
         Draws a pixel at coordinate (x_pos, y_pos).
@@ -108,31 +123,13 @@ class Chip8Display:
             
         return overwrite
             
-
-    
-    def draw_byte(self, x_pos, y_pos, byte):
+    def is_drawn_pixel_present(self, x_pos, y_pos):
         """
-        Opcode Dxyn - DRW Vx, Vy, nibble
+        Returns True if the pixel at (x_pos, y_pos) is already drawn.
         
-        Draws a sprite at coordinate (Vx, Vy) with width 8 pixels and height n pixels.
-        
-        :param x_pos: x-coordinate of the sprite to draw.
-        :param y_pos: y-coordinate of the sprite to draw.
-        :param byte: The byte to draw.
-        
-        :return: True if pixel was overwritten, False otherwise.
+        :param x_pos: x-coordinate of the pixel to check.
+        :param y_pos: y-coordinate of the pixel to check.
         """
-        overwritten = False
-        for i in range(8):
-            if self.is_bit_set(byte, i):
-                # Wrap pixel around the screen if it goes out of bounds
-                new_x_pos = (x_pos + i) % self.width
-                # Adjust y_pos if out of range values are passed
-                new_y_pos = (y_pos) % self.height
-                
-                draw_ret_val = self.draw_pixel(new_x_pos, new_y_pos)
-                
-                if draw_ret_val:
-                    overwritten = True
         
-        return overwritten
+        return self.display.get_at((x_pos, y_pos)) == self.MAIN_COLOR
+        
