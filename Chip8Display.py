@@ -29,7 +29,7 @@ class Chip8Display:
         
         if self.display is None:
             self.display = pygame.display.set_mode(
-                (self.width * self.SCALE, self.height * self.SCALE)
+                (self.width * self.scale, self.height * self.scale)
             )
             self.clear_display()
             self.update_display()
@@ -63,7 +63,7 @@ class Chip8Display:
     def is_bit_set(self, byte, index):
         """
         Returns True if the bit at index is set in byte.
-        Where index is 0-7, and index 0 is the least significant bit.
+        Where index is 0-7, and index 0 is the most significant bit.
         
         :param byte: The byte to check.
         :param index: The index of the bit to check.
@@ -73,7 +73,7 @@ class Chip8Display:
         if index < 0 or index > 7:
             raise ValueError("Index must be between 0 and 7")
         
-        return (byte & (1 << index)) != 0
+        return (byte & (1 << (7 - index))) != 0
 
 
     def draw_pixel(self, x_pos, y_pos):

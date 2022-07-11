@@ -6,6 +6,8 @@ Chip8 emulator written in Python
 
 import random
 from time import sleep
+import sys
+import logging
 
 import pygame
 
@@ -39,6 +41,11 @@ class Chip8:
         self.DISPLAY_WIDTH = 64
         self.DISPLAY_HEIGHT = 32
         
+        self.CLOCK_SPEED = round((1 / 500) * 1000) # Time in milliseconds between each instruction
+        self.TIMER_SPEED = round((1 /60) * 1000)   # Time in milliseconds between each timer update
+        
+        self.FONT_ADDR_START = 0x0
+        
         self.KEY_MAPPINGS = {
             0x1: pygame.K_1,
             0x2: pygame.K_2,
@@ -58,6 +65,8 @@ class Chip8:
             0xF: pygame.K_v
         }
         
+        logging.basicConfig(level=logging.DEBUG)
+                
         ###########################
         # VARIABLES
         ###########################
@@ -77,6 +86,10 @@ class Chip8:
             "delay": 0x00,
             "sound": 0x00,
         }
+        
+        self.cpu_clock = pygame.time.Clock()
+        
+        self.timer_clock = pygame.time.Clock()
         
         self.display = None
 
@@ -131,18 +144,41 @@ class Chip8:
         }
         
         self.opcode_0xF_last_byte_lookup = {
-            0x0A: self.op_Fx0A
+            0x07: self.ld_reg_with_dly_timer,
+            0x0A: self.wait_for_input,
+            0x15: self.ld_delay_timer_with_reg,
+            0x18: self.ld_sound_timer_with_reg,
+            0x1E: self.add_i_with_reg,
+            0x29: self.ld_i_font_sprite,
+            0x33: self.ld_i_bcd_of_reg,
+            0x55: self.store_regs_at_i,
+            0x65: self.ld_regs_at_i
         }
         
 
         self.load_fontset()
         
+    def update_timers(self):
+        """
+        Update the timers.
+        """
+        cur_time_ms = self.timer_clock.tick()
+        if not (cur_time_ms >= self.TIMER_SPEED):
+            return
+        
+        if self.timers["delay"] > 0:
+            self.timers["delay"] -= 1
+        if self.timers["sound"] > 0:
+            self.timers["sound"] -= 1
+        
     def create_display(self):
         """
         Create a pygame display.
         """
-        self.display = Chip8Display(self.DISPLAY_WIDTH, self.DISPLAY_HEIGHT)
-        self.display.create_display()
+        
+        if self.display is None:
+            self.display = Chip8Display(self.DISPLAY_WIDTH, self.DISPLAY_HEIGHT)
+            self.display.create_display()
         
     def is_key_pressed(self, key):
         """
@@ -156,6 +192,22 @@ class Chip8:
         keys_pressed = pygame.key.get_pressed()
 
         return bool(keys_pressed[self.KEY_MAPPINGS[key]])
+    
+    def wait_and_get_key(self):
+        """
+        Wait for a keypress.
+        
+        :return: Key pressed
+        """
+        while True:
+            for event in pygame.event.get():
+                # Handle quit event
+                if event.type == pygame.QUIT:
+                    pygame.quit()
+                    sys.exit()
+                # Wait until a valid key is pressed
+                if (event.type == pygame.KEYDOWN) and (event.key in self.KEY_MAPPINGS.values()):
+                    return event.key
         
     def validate_lookup(self, lookup_table, nibble):
         """
@@ -216,7 +268,18 @@ class Chip8:
         function_lookup(opcode_nibbles)
         
     def lookup_opcode_0xF(self, opcode_nibbles):
-        pass
+        """
+        Lookup opcode beginning with 0xF, running the appropriate function
+        based on the last byte.
+
+        :param opcode_nibbles: dict of opcode nibbles
+        """
+        
+        last_byte = opcode_nibbles["last_byte"]
+        self.validate_lookup(self.opcode_0xF_last_byte_lookup, last_byte)
+    
+        function_lookup = self.opcode_0xF_last_byte_lookup[last_byte]
+        function_lookup(opcode_nibbles)
 
     def validate_data_size(self, start_addr, data):
         """
@@ -270,13 +333,22 @@ class Chip8:
     # Main emulator loop
     def main_loop(self):
         self.create_display()
+        self.cpu_clock.tick()
+        self.timer_clock.tick()
+        loop_num = 0
         while True:
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     pygame.quit()
                     quit()
             self.emulate_cyle()
-            pygame.time.delay(10)
+            self.update_timers()
+            
+            cpu_clock_ms = self.cpu_clock.tick()
+            if cpu_clock_ms < self.CLOCK_SPEED:
+                pygame.time.delay(self.CLOCK_SPEED - cpu_clock_ms)
+                
+            loop_num += 1
 
     def get_opcode_nibble_dict(self, opcode):
         """
@@ -285,7 +357,7 @@ class Chip8:
         
         combined_opcode = (opcode[0] << 8 | opcode[1]) & 0xFFFF
         opcode_nibbles = {
-            "all:"              : combined_opcode,
+            "all"              : combined_opcode,
             "first_nibble"      : (combined_opcode & 0xF000) >> 12,
             "second_nibble"     : (combined_opcode & 0x0F00) >> 8,
             "third_nibble"      : (combined_opcode & 0x00F0) >> 4,
@@ -299,6 +371,10 @@ class Chip8:
     # Execute chip8 opcode
     def execute_opcode(self, opcode):
         opcode_nibbles = self.get_opcode_nibble_dict(opcode)
+        
+        # Pretty print opcode in hex
+        print("Opcode: 0x{:04X}".format(opcode_nibbles["all"]))
+        
         first_nibble = opcode_nibbles["first_nibble"]
         
         lookup_function = self.opcode_first_nibble_lookup[first_nibble]
@@ -318,8 +394,8 @@ class Chip8:
         Clear the screen.
         """
 
-        self.display.fill((0, 0, 0))
-        self.update_display()
+        self.display.clear_display()
+        self.display.update_display()
 
     def return_from_subrtn(self, opcode_nibbles):
         """
@@ -552,7 +628,7 @@ class Chip8:
         Opcode Annn - LD I, addr
         """
 
-        self.i = opcode_nibbles["last_three_nibbles"]
+        self.registers["i"] = opcode_nibbles["last_three_nibbles"]
 
     def jmp_reg0_with_byte(self, opcode_nibbles):
         """
@@ -597,108 +673,124 @@ class Chip8:
   
     def skip_on_keypress(self, opcode_nibbles):
         """
-        TODO
         Opcode Ex9E - SKP Vx
+        
+        Skip next instruction if key with the value of Vx is pressed.
         """
     
         key = self.registers["v"][opcode_nibbles["second_nibble"]]
         if self.is_key_pressed(key):
             self.registers["pc"] += 2
         
-
-    
-
     def skip_on_not_keypress(self, opcode_nibbles):
         """
-        TODO
         Opcode ExA1 - SKNP Vx
+        
+        Skip next instruction if key with the value of Vx is not pressed.
         """
-        pass
+        
+        key = self.registers["v"][opcode_nibbles["second_nibble"]]
+        if not self.is_key_pressed(key):
+            self.registers["pc"] += 2
 
     def ld_reg_with_dly_timer(self, opcode_nibbles):
         """
         Opcode Fx07 - LD Vx, DT
+        
+        Load the value of DT into Vx.
         """
 
         self.registers["v"][opcode_nibbles["second_nibble"]] = self.delay_timer
 
     
-
-
-    def op_Fx0A(self, opcode_nibbles):
+    def wait_for_input(self, opcode_nibbles):
         """
-        TODO
         Opcode Fx0A - LD Vx, K
+        
+        Wait for a key press, store the value of the key in Vx.
         """
-        pass
+        
+        key_pressed = self.wait_and_get_key()
+        self.registers["v"][opcode_nibbles["second_nibble"]] = key_pressed
 
-    def op_Fx15(self, opcode_nibbles):
+    def ld_delay_timer_with_reg(self, opcode_nibbles):
         """
         Opcode Fx15 - LD DT, Vx
+        
+        Set the delay timer to Vx.
         """
 
-        self.delay_timer = self.registers["v"][opcode_nibbles["second_nibble"]]
+        self.timers["delay"] = self.registers["v"][opcode_nibbles["second_nibble"]]
 
   
-
-    def op_Fx18(self, opcode_nibbles):
-          
+    def ld_sound_timer_with_reg(self, opcode_nibbles):
         """
-        TODO
         Opcode Fx18 - LD ST, Vx
+        
+        Set the sound timer to Vx.
         """
-        pass
+        self.timers["sound"] = self.registers["v"][opcode_nibbles["second_nibble"]]
 
     def add_i_with_reg(self, opcode_nibbles):
         """
         Opcode Fx1E - ADD I, Vx
         """
 
-        self.i += self.registers["v"][opcode_nibbles["second_nibble"]]
-        self.i &= 0xFFFF
+        self.registers["i"] += self.registers["v"][opcode_nibbles["second_nibble"]]
+        self.registers["i"] &= 0xFFFF
 
 
 
-    def op_Fx29(self, opcode_nibbles):
+    def ld_i_font_sprite(self, opcode_nibbles):
         """
-        TODO
         Opcode Fx29 - LD F, Vx
+        
+        Set I to the location of the sprite for the character in Vx.
         """
-        pass
+        
+        sprite_char = self.registers["v"][opcode_nibbles["second_nibble"]]
+        sprite_char_addr = self.FONT_ADDR_START + (sprite_char * 5)
 
-    def op_Fx33(self, opcode_nibbles):
+    def ld_i_bcd_of_reg(self, opcode_nibbles):
         """
         Opcode Fx33 - LD B, Vx
+        
+        Load the BCD representation of Vx into memory locations I, I+1, and I+2.
         """
 
-        # 100s
-        self.memory[self.i] = (
+        # 100s place
+        self.memory[self.registers["i"]] = (
             int((self.registers["v"][opcode_nibbles["second_nibble"]] / 100) % 10) & 0xFF
         )
+        
         # 10s place
-        self.memory[self.i + 1] = (
+        self.memory[self.registers["i"] + 1] = (
             int((self.registers["v"][opcode_nibbles["second_nibble"]] / 10) % 10) & 0xFF
         )
         # 1s place
-        self.memory[self.i + 2] = (
+        self.memory[self.registers["i"] + 2] = (
             int(self.registers["v"][opcode_nibbles["second_nibble"]] % 10) & 0xFF
         )
 
-    def op_Fx55(self, opcode_nibbles):
+    def store_regs_at_i(self, opcode_nibbles):
         """
         Opcode Fx55 - LD [I], Vx
+        
+        Store registers V0 through Vx in memory starting at location I.
         """
 
         for i in range(opcode_nibbles["second_nibble"] + 1):
-            self.memory[self.i + i] = self.registers["v"][i]
+            self.memory[self.registers["i"] + i] = self.registers["v"][i]
 
-    def ld_num_reg_bytes_at_i_addr(self, opcode_nibbles):
+    def ld_regs_at_i(self, opcode_nibbles):
         """
         Opcode Fx65 - LD Vx, [I]
+        
+        Load registers V0 through Vx from memory starting at location I.
         """
 
         for i in range(opcode_nibbles["second_nibble"] + 1):
-            self.registers["v"][i] = self.memory[self.i + i]
+            self.registers["v"][i] = self.memory[self.registers["i"] + i]
 
     def load_fontset(self):
         self.memory[0x0:0xA0] = [
