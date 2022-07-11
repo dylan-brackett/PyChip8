@@ -111,31 +111,7 @@ class Chip8Debugger:
             self.halt = True
         elif command_array[0] == "p":
             should_continue = False
-            
-            if command_array[1].startswith("0x"):
-                # Print memory address
-                opcode = self.get_mem_addr(int(command_array[1], 16) & 0xFFFF)
-                # Pretty print opcode in hex
-                print("0x%04X\t%04X" % (int(command_array[1], 16) & 0xFFFF, opcode))
-                
-            elif command_array[1].startswith("v"):
-                # Print V register
-                print(self.chip8.registers["v"][int(command_array[1][1:], 16) & 0xFF])
-            elif command_array[1].startswith("i"):
-                # Print I register
-                print(self.chip8.registers["i"])
-            elif command_array[1].startswith("pc"):
-                print(self.chip8.registers["pc"])
-            elif command_array[1].startswith("sp"):
-                print(self.chip8.registers["sp"])
-            elif command_array[1].startswith("stack"):
-                for i in range(len(self.chip8.stack)):
-                    print("\tStack[%d]: %d" % (i, self.chip8.stack[i]))
-            elif command_array[1].startswith("all"):
-                self.show_info_all()
-            elif command_array[1].startswith("b"):
-                print(self.breakpoints)
-                
+            self.debug_print(command_array)
         elif command_array[0] == "c":
             # Continue running
             pass
@@ -144,7 +120,7 @@ class Chip8Debugger:
             sys.exit(0)
         
         return should_continue
-        
+
     def add_breakpoint(self, address):
         """
         Define a breakpoint at address.
@@ -156,31 +132,29 @@ class Chip8Debugger:
         
         if address not in self.breakpoins:
             self.breakpoints.append(address)
-    
-    def show_info_all(self):
-        """
-        Print Chip8 Registers
-        """
+
+    def debug_print(self, command_array):
+        if command_array[1].startswith("0x"):
+            # Print memory address
+            opcode = self.get_mem_addr(int(command_array[1], 16) & 0xFFFF)
+            # Pretty print opcode in hex
+            print("0x%04X\t%04X" % (int(command_array[1], 16) & 0xFFFF, opcode))
+        elif command_array[1].startswith("v"):
+            # Print V register
+            print(self.chip8.registers["v"][int(command_array[1][1:], 16) & 0xFF])
+        elif command_array[1].startswith("i"):
+            # Print I register
+            print(self.chip8.registers["i"])
+        elif command_array[1].startswith("pc"):
+            print(self.chip8.registers["pc"])
+        elif command_array[1].startswith("sp"):
+            print(self.chip8.registers["sp"])
+        elif command_array[1].startswith("stack"):
+            for i in range(len(self.chip8.stack)):
+                print("\tStack[%d]: %d" % (i, self.chip8.stack[i]))
+        elif command_array[1].startswith("b"):
+            print(self.breakpoints)
         
-        print("Registers:")
-        
-        # Print V registers as hex
-        for i in range(len(self.chip8.registers["v"])):
-            print("\tV%d: 0x%02X" % (i, self.chip8.registers["v"][i]))
-            
-        # Print I register as hex
-        print("\tI: 0x%04X" % self.chip8.registers["i"])
-        
-        # Print PC register as hex
-        print("\tPC: 0x%04X" % self.chip8.registers["pc"])
-        
-        # Print SP register as hex
-        print("\tSP: 0x%04X" % self.chip8.registers["sp"])
-        
-        # Print stack as hex
-        for i in range(len(self.chip8.stack)):
-            print("\tStack[%d]: 0x%04X" % (i, self.chip8.stack[i]))
-            
     def get_mem_addr(self, address):
         """
         Get the memory address of the given address.
