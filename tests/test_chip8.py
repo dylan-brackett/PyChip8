@@ -1,11 +1,14 @@
+import os
+import sys
 import unittest
 
-from ..chip8 import Chip8CPU
+sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../")
 
+from chip8.Chip8CPU import Chip8CPU
 
-class Chip8_Test(unittest.TestCase):
+class Chip8CpuTest(unittest.TestCase):
     def __init__(self, *args, **kwargs):
-        super(Chip8_Test, self).__init__(*args, **kwargs)
+        super(Chip8CpuTest, self).__init__(*args, **kwargs)
 
     def setUp(self):
         self.chip8 = Chip8CPU()
@@ -14,7 +17,7 @@ class Chip8_Test(unittest.TestCase):
         """
         Test first and last byte of ROM
         """
-        self.chip8.load_rom("test_opcode.ch8")
+        self.chip8.load_rom("tests/test_opcode.ch8")
 
         # First byte of file
         self.assertEqual(self.chip8.memory[0x200], 0x12)
@@ -22,71 +25,22 @@ class Chip8_Test(unittest.TestCase):
         # Last byte of file
         self.assertEqual(self.chip8.memory[0x200 + 0x01DD], 0xDC)
 
-    def test_emulate_cycle(self):
-        """
-        Test emulate cycle
-        """
-
-        self.chip8.emulate_cyle()
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
-
-    def test_clear_screen(self):
-        """
-        Test Opcode 00E0 - CLS
-        
-        Clear the screen.
-        """
-
-        # Create chip8 window
-        self.chip8.create_display()
-
-        # Fill chip8 window with red pixels
-        self.chip8.display.fill((255, 0, 0))
-        self.chip8.update_display()
-
-        # Opcode 00E0
-        self.chip8.memory[0x200] = 0x00
-        self.chip8.memory[0x201] = 0xE0
-
-        self.chip8.emulate_cyle()
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
-
-        # Check if pygame display is cleared
-        for x in range(self.chip8.display.get_width()):
-            for y in range(self.chip8.display.get_height()):
-                self.assertEqual(self.chip8.display.get_at((x, y)), (0, 0, 0))
 
     def test_return_from_subrtn(self):
         """
-        Test opcode 00EE
+        Test Opcode 00EE - RET
+        
+        Return from a subroutine by popping the stack and setting the program counter to the popped value.
         """
 
-        # Opcode 2nnn
-        self.chip8.memory[0x200] = 0x22
-        self.chip8.memory[0x201] = 0x34
+        self.chip8.registers["pc"] = 0x240
+        self.chip8.stack[0x1] = 0x220
+        self.chip8.registers["sp"] = 0x1
+        
+        self.chip8.return_from_subrtn()
+        
+        self.assertEqual(self.chip8.registers["pc"], 0x220)
 
-        # Opcode 00EE
-        self.chip8.memory[0x234] = 0x00
-        self.chip8.memory[0x235] = 0xEE
-
-        self.chip8.emulate_cyle()
-
-        # Check stack is not empty
-        self.assertEqual(self.chip8.registers["sp"], 0x1)
-        self.assertEqual(self.chip8.stack[self.chip8.registers["sp"]], 0x200)
-
-        # PC should be 0x234
-        self.assertEqual(self.chip8.registers["pc"], 0x234)
-
-        self.chip8.emulate_cyle()
-
-        # Check stack is empty
-        self.assertEqual(self.chip8.registers["sp"], 0x0)
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
 
     def test_jump_addr(self):
         """
@@ -94,15 +48,16 @@ class Chip8_Test(unittest.TestCase):
         
         Jump to address nnn.
         """
+        
+        nibble_dict = {
+            "last_three_bits": 0x0300   
+        }
+        
+        self.chip8.registers["pc"] = 0x230
 
-        # Opcode 1nnn
-        self.chip8.memory[0x200] = 0x12
-        self.chip8.memory[0x201] = 0x34
+        self.chip8.jump_addr(nibble_dict)
 
-        self.chip8.emulate_cyle()
-
-        # PC should be 0x234
-        self.assertEqual(self.chip8.registers["pc"], 0x234)
+        self.assertEqual(self.chip8.registers["pc"],  (0x0300 - 0x2))
 
     def test_call_addr(self):
         """
@@ -111,20 +66,21 @@ class Chip8_Test(unittest.TestCase):
         Call subroutine at nnn. Push current pc onto stack and jump to nnn.
         """
 
-        # Opcode 2nnn
-        self.chip8.memory[0x200] = 0x22
-        self.chip8.memory[0x201] = 0x34
+        nibble_dict = {
+            "last_three_bits": 0x0350   
+        }
+        
+        self.chip8.registers["pc"] = 0x240
+        self.chip8.registers["sp"] = 0x4
+        
+        self.assertEqual(self.chip8.registers["sp"], 0x4)
+        
+        self.chip8.call_addr(nibble_dict)
 
-        self.chip8.emulate_cyle()
+        self.assertEqual(self.chip8.registers["pc"],  (0x0350 - 0x2))
+        self.assertEqual(self.chip8.stack[0x5], 0x240)
+        self.assertEqual(self.chip8.registers["sp"], 0x5)
 
-        # PC should be 0x234
-        self.assertEqual(self.chip8.registers["pc"], 0x234)
-
-        # SP should be 0x1
-        self.assertEqual(self.chip8.registers["sp"], 0x1)
-
-        # Stack should be 0x200
-        self.assertEqual(self.chip8.stack[0x1], 0x200)
 
     def test_skip_reg_eq_byte_neq(self):
         """
@@ -134,14 +90,19 @@ class Chip8_Test(unittest.TestCase):
         Skip next instruction if Vx = kk.
         """
 
-        # Opcode 3xkk
-        self.chip8.memory[0x200] = 0x31
-        self.chip8.memory[0x201] = 0x23
-
-        self.chip8.emulate_cyle()
-
-        # Show that next opcode isn't skipped
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
+        nibble_dict = {
+            "second_nibble": 0x1,
+            "last_byte": 0x23,
+        }
+        
+        self.chip8.registers["pc"] = 0x330
+        
+        self.chip8.registers["v"][0x1] = 0x10
+        
+        self.chip8.skip_reg_eq_byte(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["pc"], 0x330)
+        
 
     def test_skip_reg_eq_byte_eq(self):
         """
@@ -151,16 +112,18 @@ class Chip8_Test(unittest.TestCase):
         Skip next instruction if Vx = kk.
         """
 
-        # Opcode 3xkk
-        self.chip8.memory[0x200] = 0x31
-        self.chip8.memory[0x201] = 0x23
-
-        self.chip8.registers[0x1] = 0x23
-
-        self.chip8.emulate_cyle()
-
-        # Show that next opcode is skipped
-        self.assertEqual(self.chip8.registers["pc"], 0x204)
+        nibble_dict = {
+            "second_nibble": 0x2,
+            "last_byte": 0x12,
+        }
+        
+        self.chip8.registers["pc"] = 0x430
+        
+        self.chip8.registers["v"][0x2] = 0x12
+        
+        self.chip8.skip_reg_eq_byte(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["pc"], 0x432)
 
     def test_skip_reg_neq_byte_neq(self):
         """
@@ -170,14 +133,18 @@ class Chip8_Test(unittest.TestCase):
         Skip next instruction if Vx != kk.
         """
 
-        # Opcode 4xkk
-        self.chip8.memory[0x200] = 0x41
-        self.chip8.memory[0x201] = 0x23
-
-        self.chip8.emulate_cyle()
-
-        # PC should be 0x204
-        self.assertEqual(self.chip8.registers["pc"], 0x204)
+        nibble_dict = {
+            "second_nibble": 0x4,
+            "last_byte": 0x10,
+        }
+        
+        self.chip8.registers["pc"] = 0x510
+        
+        self.chip8.registers["v"][0x4] = 0x22
+        
+        self.chip8.skip_reg_neq_byte(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["pc"], 0x512)
 
     def test_skip_reg_neq_byte_eq(self):
         """
@@ -187,16 +154,18 @@ class Chip8_Test(unittest.TestCase):
         Skip next instruction if Vx != kk.
         """
 
-        # Opcode 4xkk
-        self.chip8.memory[0x200] = 0x41
-        self.chip8.memory[0x201] = 0x23
-
-        self.chip8.registers[0x1] = 0x23
-
-        self.chip8.emulate_cyle()
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
+        nibble_dict = {
+            "second_nibble": 0x8,
+            "last_byte": 0x50,
+        }
+        
+        self.chip8.registers["pc"] = 0x600
+        
+        self.chip8.registers["v"][0x8] = 0x50
+        
+        self.chip8.skip_reg_neq_byte(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["pc"], 0x600)
 
     def test_skip_reg_eq_reg_neq(self):
         """
@@ -205,16 +174,20 @@ class Chip8_Test(unittest.TestCase):
         
         Skip next instruction if Vx = Vy.
         """
-        self.chip8.memory[0x200] = 0x51
-        self.chip8.memory[0x201] = 0x20
-
-        self.chip8.registers[0x0] = 1
-        self.chip8.registers[0x1] = 2
-
-        self.chip8.emulate_cyle()
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
+        
+        nibble_dict = {
+            "second_nibble": 0x4,
+            "third_nibble": 0x0,
+        }
+        
+        self.chip8.registers["pc"] = 0x440
+        
+        self.chip8.registers["v"][0x4] = 0x22
+        self.chip8.registers["v"][0x0] = 0x10
+        
+        self.chip8.skip_reg_eq_reg(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["pc"], 0x440)
 
     def test_skip_reg_eq_reg_eq(self):
         """
@@ -224,16 +197,19 @@ class Chip8_Test(unittest.TestCase):
         Skip next instruction if Vx = Vy.
         """
 
-        self.chip8.memory[0x200] = 0x51
-        self.chip8.memory[0x201] = 0x20
-
-        self.chip8.registers[0x1] = 0x23
-        self.chip8.registers[0x2] = 0x23
-
-        self.chip8.emulate_cyle()
-
-        # PC should be 0x204
-        self.assertEqual(self.chip8.registers["pc"], 0x204)
+        nibble_dict = {
+            "second_nibble": 0xE,
+            "third_nibble": 0xF,
+        }
+        
+        self.chip8.registers["pc"] = 0xFA0
+        
+        self.chip8.registers["v"][0xE] = 0xAA
+        self.chip8.registers["v"][0xF] = 0xAA
+        
+        self.chip8.skip_reg_eq_reg(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["pc"], 0xFA2)
 
     def test_ld_to_reg(self):
         """
@@ -242,16 +218,16 @@ class Chip8_Test(unittest.TestCase):
         Load byte into Vx.
         """
 
-        self.chip8.memory[0x200] = 0x61
-        self.chip8.memory[0x201] = 0x23
-
-        self.chip8.emulate_cyle()
-
-        # V1 should be 0x23
-        self.assertEqual(self.chip8.registers[0x1], 0x23)
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
+        nibble_dict = {
+            "second_nibble": 0xB,
+            "last_byte": 0xBB,
+        }
+        
+        self.chip8.registers["v"][0xB] = 0x0
+        
+        self.chip8.ld_to_reg(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["v"][0xB], 0xBB)
 
     def test_add_byte_to_reg(self):
         """
@@ -260,18 +236,35 @@ class Chip8_Test(unittest.TestCase):
         Add byte to Vx.
         """
 
-        self.chip8.memory[0x200] = 0x71
-        self.chip8.memory[0x201] = 0x23
+        nibble_dict = {
+            "second_nibble": 0xC,
+            "last_byte": 0xDA,
+        }
+        
+        self.chip8.registers["v"][0xC] = 0x01
 
-        self.chip8.registers[0x1] = 0x01
+        self.chip8.add_byte_to_reg(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["v"][0xC], 0xDB)
+    
+    def test_add_byte_to_reg_overflow(self):
+        """
+        Test Opcode 7xkk - ADD Vx, byte
+        Test when addition goes over 255
+        
+        Add byte to Vx.
+        """
 
-        self.chip8.emulate_cyle()
+        nibble_dict = {
+            "second_nibble": 0xD,
+            "last_byte": 0xFF,
+        }
+        
+        self.chip8.registers["v"][0xD] = 0x0A
 
-        # V1 should be 0x24
-        self.assertEqual(self.chip8.registers[0x1], 0x24)
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
+        self.chip8.add_byte_to_reg(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["v"][0xD], 0x09)
 
     def test_ld_reg_to_reg(self):
         """
@@ -280,19 +273,18 @@ class Chip8_Test(unittest.TestCase):
         Load Vy into Vx.
         """
 
-        self.chip8.memory[0x200] = 0x81
-        self.chip8.memory[0x201] = 0x20
+        nibble_dict = {
+            "second_nibble": 0x1,
+            "third_nibble": 0x2,
+        }
+        
+        self.chip8.registers["v"][0x1] = 0x00
+        self.chip8.registers["v"][0x2] = 0x11
+        
+        self.chip8.ld_reg_to_reg(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["v"][0x1], 0x11)
 
-        self.chip8.registers[0x1] = 0x23
-        self.chip8.registers[0x2] = 0x25
-
-        self.chip8.emulate_cyle()
-
-        # V1 should be 0x25
-        self.assertEqual(self.chip8.registers[0x1], 0x25)
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
 
     def test_or_regs(self):
         """
@@ -301,19 +293,17 @@ class Chip8_Test(unittest.TestCase):
         Or Vx and Vy. Set Vx to result.
         """
 
-        self.chip8.memory[0x200] = 0x81
-        self.chip8.memory[0x201] = 0x21
-
-        self.chip8.registers[0x1] = 0x23
-        self.chip8.registers[0x2] = 0x25
-
-        self.chip8.emulate_cyle()
-
-        # V1 should be (0x23 | 0x25)
-        self.assertEqual(self.chip8.registers[0x1], (0x23 | 0x25))
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
+        nibble_dict = {
+            "second_nibble": 0x2,
+            "third_nibble": 0x3,
+        }
+        
+        self.chip8.registers["v"][0x2] = 0x0F
+        self.chip8.registers["v"][0x3] = 0xF0
+        
+        self.chip8.or_regs(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["v"][0x2], 0xFF)
 
     def test_and_regs(self):
         """
@@ -322,19 +312,17 @@ class Chip8_Test(unittest.TestCase):
         And Vx and Vy. Set Vx to result.
         """
 
-        self.chip8.memory[0x200] = 0x81
-        self.chip8.memory[0x201] = 0x22
-
-        self.chip8.registers[0x1] = 0x23
-        self.chip8.registers[0x2] = 0x25
-
-        self.chip8.emulate_cyle()
-
-        # V1 should be (0x23 & 0x25)
-        self.assertEqual(self.chip8.registers[0x1], (0x23 & 0x25))
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
+        nibble_dict = {
+            "second_nibble": 0xD,
+            "third_nibble": 0xE,
+        }
+        
+        self.chip8.registers["v"][0xD] = 0x0A
+        self.chip8.registers["v"][0xE] = 0x0D
+        
+        self.chip8.and_regs(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["v"][0xD], 0x08)
 
     def test_xor_regs(self):
         """
@@ -343,19 +331,17 @@ class Chip8_Test(unittest.TestCase):
         Xor Vx and Vy. Set Vx to result.
         """
 
-        self.chip8.memory[0x200] = 0x81
-        self.chip8.memory[0x201] = 0x23
-
-        self.chip8.registers[0x1] = 0x23
-        self.chip8.registers[0x2] = 0x25
-
-        self.chip8.emulate_cyle()
-
-        # V1 should be (0x23 ^ 0x25)
-        self.assertEqual(self.chip8.registers[0x1], (0x23 ^ 0x25))
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
+        nibble_dict = {
+            "second_nibble": 0x4,
+            "third_nibble": 0x5,
+        }
+        
+        self.chip8.registers["v"][0x4] = 0x0F
+        self.chip8.registers["v"][0x5] = 0xAB
+        
+        self.chip8.xor_regs(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["v"][0x4], 0xA4)
 
     def test_add_regs_no_carry(self):
         """
@@ -366,22 +352,18 @@ class Chip8_Test(unittest.TestCase):
         Set VF to 1 if there is a carry, 0 otherwise.
         """
 
-        self.chip8.memory[0x200] = 0x81
-        self.chip8.memory[0x201] = 0x24
-
-        self.chip8.registers[0x1] = 0x23
-        self.chip8.registers[0x2] = 0x25
-
-        self.chip8.emulate_cyle()
-
-        # V1 should be (0x23 + 0x25)
-        self.assertEqual(self.chip8.registers[0x1], (0x23 + 0x25))
-
-        # VF should be 0
-        self.assertEqual(self.chip8.registers[0xF], 0)
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
+        nibble_dict = {
+            "second_nibble": 0x6,
+            "third_nibble": 0x7,
+        }
+        
+        self.chip8.registers["v"][0x6] = 0x0F
+        self.chip8.registers["v"][0x7] = 0xAB
+        
+        self.chip8.add_regs(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["v"][0x6], 0xBA)
+        self.assertEqual(self.chip8.registers["v"][0xF], 0x0)
 
     def test_add_regs_carry(self):
         """
@@ -392,48 +374,18 @@ class Chip8_Test(unittest.TestCase):
         Set VF to 1 if there is a carry, 0 otherwise.
         """
 
-        self.chip8.memory[0x200] = 0x81
-        self.chip8.memory[0x201] = 0x24
-
-        self.chip8.registers[0x1] = 0xFF
-        self.chip8.registers[0x2] = 0xAB
-
-        self.chip8.emulate_cyle()
-
-        # V1 should be (0xFF + 0xAB)
-        self.assertEqual(self.chip8.registers[0x1], (0xFF + 0xAB) & 0xFF)
-
-        # VF should be 1
-        self.assertEqual(self.chip8.registers[0xF], 1)
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
-
-    def test_add_regs_carry_fail(self):
-        """
-        Test Opcode 8xy4 - ADD Vx, Vy
-        Test carry failing
+        nibble_dict = {
+            "second_nibble": 0x8,
+            "third_nibble": 0x9,
+        }
         
-        Add Vx and Vy. Set Vx to result.
-        Set VF to 1 if there is a carry, 0 otherwise.
-        """
-
-        self.chip8.memory[0x200] = 0x81
-        self.chip8.memory[0x201] = 0x24
-
-        self.chip8.registers[0x1] = 0xFF
-        self.chip8.registers[0x2] = 0xAB
-
-        self.chip8.emulate_cyle()
-
-        # V1 should be (0xFF + 0xAB)
-        self.assertNotEqual(self.chip8.registers[0x1], (0xFF + 0xAB))
-
-        # VF should be 1
-        self.assertEqual(self.chip8.registers[0xF], 1)
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
+        self.chip8.registers["v"][0x8] = 0xFF
+        self.chip8.registers["v"][0x9] = 0x0B
+        
+        self.chip8.add_regs(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["v"][0x8], 0x0A)
+        self.assertEqual(self.chip8.registers["v"][0xF], 0x1)
 
     def test_sub_regs_no_borrow(self):
         """
@@ -444,22 +396,18 @@ class Chip8_Test(unittest.TestCase):
         Set VF to 1 if there is no borrow, 0 otherwise.
         """
 
-        self.chip8.memory[0x200] = 0x81
-        self.chip8.memory[0x201] = 0x25
-
-        self.chip8.registers[0x1] = 0x25
-        self.chip8.registers[0x2] = 0x23
-
-        self.chip8.emulate_cyle()
-
-        # V1 should be (0x25 - 0x23)
-        self.assertEqual(self.chip8.registers[0x1], ((0x25 - 0x23) & 0xFF))
-
-        # VF should be 0
-        self.assertEqual(self.chip8.registers[0xF], 1)
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
+        nibble_dict = {
+            "second_nibble": 0xA,
+            "third_nibble": 0xB,
+        }
+        
+        self.chip8.registers["v"][0xA] = 0xAC
+        self.chip8.registers["v"][0xB] = 0x0C
+        
+        self.chip8.sub_regs(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["v"][0xA], 0xA0)
+        self.assertEqual(self.chip8.registers["v"][0xF], 0x1)
 
     def test_sub_regs_borrow(self):
         """
@@ -470,22 +418,18 @@ class Chip8_Test(unittest.TestCase):
         Set VF to 1 if there is no borrow, 0 otherwise.
         """
 
-        self.chip8.memory[0x200] = 0x81
-        self.chip8.memory[0x201] = 0x25
-
-        self.chip8.registers[0x1] = 0x23
-        self.chip8.registers[0x2] = 0x25
-
-        self.chip8.emulate_cyle()
-
-        # V1 should be (0x25 - 0x23)
-        self.assertEqual(self.chip8.registers[0x1], 0xFE)
-
-        # VF should be 0
-        self.assertEqual(self.chip8.registers[0xF], 0)
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
+        nibble_dict = {
+            "second_nibble": 0xC,
+            "third_nibble": 0xD,
+        }
+        
+        self.chip8.registers["v"][0xC] = 0x0A
+        self.chip8.registers["v"][0xD] = 0xDD
+        
+        self.chip8.sub_regs(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["v"][0xC], 0x2D)
+        self.assertEqual(self.chip8.registers["v"][0xF], 0x0)
 
     def test_right_shift_reg(self):
         """
@@ -494,21 +438,16 @@ class Chip8_Test(unittest.TestCase):
         Right shift Vx. Set Vx to result.
         """
 
-        self.chip8.memory[0x200] = 0x81
-        self.chip8.memory[0x201] = 0x26
-
-        self.chip8.registers[0x1] = 0x23
-
-        self.chip8.emulate_cyle()
-
-        # VF Should be 1
-        self.assertEqual(self.chip8.registers[0xF], 1)
-
-        # V1 should be (0x23 >> 1)
-        self.assertEqual(self.chip8.registers[0x1], (0x23 >> 1))
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
+        nibble_dict = {
+            "second_nibble": 0xE,
+            "third_nibble": 0xF,
+        }
+        
+        self.chip8.registers["v"][0xE] = 0x0F
+        
+        self.chip8.right_shift_reg(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["v"][0xE], 0x07)
 
     def test_reverse_sub_regs_no_borrow(self):
         """
@@ -520,22 +459,18 @@ class Chip8_Test(unittest.TestCase):
         """
 
 
-        self.chip8.memory[0x200] = 0x81
-        self.chip8.memory[0x201] = 0x27
-
-        self.chip8.registers[0x1] = 0x23
-        self.chip8.registers[0x2] = 0x25
-
-        self.chip8.emulate_cyle()
-
-        # VF Should be 1
-        self.assertEqual(self.chip8.registers[0xF], 1)
-
-        # V1 should be (0x25 - 0x23)
-        self.assertEqual(self.chip8.registers[0x1], (0x25 - 0x23))
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
+        nibble_dict = {
+            "second_nibble": 0xA,
+            "third_nibble": 0xE,
+        }
+        
+        self.chip8.registers["v"][0xA] = 0xCA
+        self.chip8.registers["v"][0xE] = 0xFA
+        
+        self.chip8.reverse_sub_regs(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["v"][0xA], 0x30)
+        self.assertEqual(self.chip8.registers["v"][0xF], 0x1)
 
     def test_reverse_sub_regs_borrow(self):
         """
@@ -546,21 +481,38 @@ class Chip8_Test(unittest.TestCase):
         Set VF to 1 if there is no borrow, 0 otherwise.
         """
 
-        self.chip8.memory[0x200] = 0x81
-        self.chip8.memory[0x201] = 0x2E
+        nibble_dict = {
+            "second_nibble": 0xB,
+            "third_nibble": 0xF,
+        }
+        
+        self.chip8.registers["v"][0xB] = 0xF0
+        self.chip8.registers["v"][0xF] = 0x08
+        
+        self.chip8.reverse_sub_regs(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["v"][0xB], 0x18)
+        self.assertEqual(self.chip8.registers["v"][0xF], 0x0)
 
-        self.chip8.registers[0x1] = 0x23
-
-        self.chip8.emulate_cyle()
-
-        # VF Should be 0
-        self.assertEqual(self.chip8.registers[0xF], 0)
-
-        # V1 should be (0x23 << 1)
-        self.assertEqual(self.chip8.registers[0x1], (0x23 << 1) & 0xFF)
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
+    def test_left_shift_reg_no_carry(self):
+        """
+        Test Opcode 8xyE - SHL Vx {, Vy}
+        Test with no carry
+        
+        Shift Vx left. Set Vx to result.
+        Set VF to 1 if most significant bit is set, 0 otherwise.
+        """
+            
+        nibble_dict = {
+            "second_nibble": 0xE,
+        }
+            
+        self.chip8.registers["v"][0xE] = 0x0A
+        
+        self.chip8.left_shift_reg(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["v"][0xE], 0x14)
+        self.assertEqual(self.chip8.registers["v"][0xF], 0x0)
 
     def test_left_shift_reg_carry(self):
         """
@@ -570,51 +522,17 @@ class Chip8_Test(unittest.TestCase):
         Shift Vx left. Set Vx to result.
         Set VF to 1 if most significant bit is set, 0 otherwise.
         """
-
-        self.chip8.memory[0x200] = 0x81
-        self.chip8.memory[0x201] = 0x2E
-
-        self.chip8.registers[0x1] = 0xFF
-
-        self.chip8.emulate_cyle()
-
-        # VF Should be 1
-        self.assertEqual(self.chip8.registers[0xF], 1)
-
-        # V1 should be (0xFF << 1)
-        self.assertEqual(self.chip8.registers[0x1], (0xFF << 1) & 0xFF)
-
-        # PC should be 0x202
-        self.assertEqual(self.chip8.registers["pc"], 0x202)
+            
+        nibble_dict = {
+            "second_nibble": 0x3,
+        }
+            
+        self.chip8.registers["v"][0x3] = 0xF0
         
-    # TODO: Add test without carry
-
-    def test_draw_bytes(self):
-        """
-        Test Opcode Dxyn - DRW Vx, Vy, nibble
+        self.chip8.left_shift_reg(nibble_dict)
         
-        Draws a sprite at coordinate (Vx, Vy) with width 8 pixels and height n pixels.
-        """
-
-        self.chip8.create_display()
-        self.chip8.memory[0x200] = 0xD0
-        self.chip8.memory[0x201] = 0x11
-        self.chip8.memory[0x250] = 0xFF
-        self.chip8.i = 0x250
-        self.chip8.registers[0x0] = 60
-        self.chip8.registers[0x1] = 2
-        self.chip8.emulate_cyle()
-
-        # Check display if pixels are present
-        self.assertEqual(
-            self.chip8.display.get_at((60 * self.chip8.SCALE, 2 * self.chip8.SCALE)),
-            (255, 255, 255),
-        )
-        # Check Wrap Around
-        self.assertEqual(
-            self.chip8.display.get_at((0 * self.chip8.SCALE, 2 * self.chip8.SCALE)),
-            (255, 255, 255),
-        )
+        self.assertEqual(self.chip8.registers["v"][0x3], 0xE0)
+        self.assertEqual(self.chip8.registers["v"][0xF], 0x1)
 
 
 if __name__ == "__main__":

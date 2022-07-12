@@ -6,6 +6,7 @@ author: dylan-brackett
 TODO: Add sound
 TODO: Add more unit tests
 TODO: Further refactor the code
+TODO: Add Super Chip-8 features
 """
 
 import random
@@ -16,8 +17,8 @@ import pygame
 from .Chip8Debugger import Chip8Debugger
 from .Chip8Display import Chip8Display
 from .config import (CLOCK_SPEED, DEBUG, DISPLAY_HEIGHT, DISPLAY_WIDTH,
-                    FONT_ADDR_START, KEY_MAPPINGS, MEMORY_SIZE, NUM_REGISTERS,
-                    STACK_SIZE, START_ADDR, TIMER_SPEED)
+                     FONT_ADDR_START, FONT_SET, KEY_MAPPINGS, MEMORY_SIZE,
+                     NUM_REGISTERS, STACK_SIZE, START_ADDR, TIMER_SPEED)
 
 
 class InvalidLookup(Exception):
@@ -52,6 +53,7 @@ class Chip8CPU:
         
         
         self.FONT_ADDR_START = FONT_ADDR_START
+        self.FONT_SET = FONT_SET
         
         self.KEY_MAPPINGS = KEY_MAPPINGS
         
@@ -258,7 +260,7 @@ class Chip8CPU:
             "second_nibble"     : (combined_opcode & 0x0F00) >> 8,
             "third_nibble"      : (combined_opcode & 0x00F0) >> 4,
             "fourth_nibble"     : combined_opcode & 0x000F,
-            "last_three_nibbles": combined_opcode & 0x0FFF,           # 12 bit data, normally addr
+            "last_three_bits": combined_opcode & 0x0FFF,           # 12 bit data, normally addr
             "last_byte"         : combined_opcode & 0x00FF            # Last byte in opcode
         }
         
@@ -362,24 +364,7 @@ class Chip8CPU:
             raise InvalidLookup(f"{nibble} not found in {str(lookup_table)}.") from e
     
     def load_fontset(self):
-        self.memory[0x0:0xA0] = [
-            0xF0, 0x90, 0x90, 0x90, 0xF0,  # 0
-            0x20, 0x60, 0x20, 0x20, 0x70,  # 1
-            0xF0, 0x10, 0xF0, 0x80, 0xF0,  # 2
-            0xF0, 0x10, 0xF0, 0x10, 0xF0,  # 3
-            0x90, 0x90, 0xF0, 0x10, 0x10,  # 4
-            0xF0, 0x80, 0xF0, 0x10, 0xF0,  # 5
-            0xF0, 0x80, 0xF0, 0x90, 0xF0,  # 6
-            0xF0, 0x10, 0x20, 0x40, 0x40,  # 7
-            0xF0, 0x90, 0xF0, 0x90, 0xF0,  # 8
-            0xF0, 0x90, 0xF0, 0x10, 0xF0,  # 9
-            0xF0, 0x90, 0xF0, 0x90, 0x90,  # A
-            0xE0, 0x90, 0xE0, 0x90, 0xE0,  # B
-            0xF0, 0x80, 0x80, 0x80, 0xF0,  # C
-            0xE0, 0x90, 0x90, 0x90, 0xE0,  # D
-            0xF0, 0x80, 0xF0, 0x80, 0xF0,  # E
-            0xF0, 0x80, 0xF0, 0x80, 0x80,  # F
-        ]
+        self.load_memory(self.FONT_ADDR_START, self.FONT_SET)
 
     ###########################
     # Opcode functions
@@ -395,9 +380,11 @@ class Chip8CPU:
         self.display.clear_display()
         self.display.update_display()
 
-    def return_from_subrtn(self, opcode_nibbles):
+    def return_from_subrtn(self, opcode_nibbles=None):
         """
         Opcode 00EE - RET
+        
+        Return from a subroutine by popping the stack and setting the program counter to the popped value.
         """
 
         self.registers["pc"] = self.stack[self.registers["sp"]]
@@ -411,7 +398,7 @@ class Chip8CPU:
         Jump to address nnn.
         """
 
-        self.registers["pc"] = opcode_nibbles["last_three_nibbles"]
+        self.registers["pc"] = opcode_nibbles["last_three_bits"]
         self.registers["pc"] -= 2
 
     def call_addr(self, opcode_nibbles):
@@ -423,8 +410,8 @@ class Chip8CPU:
 
         self.registers["sp"] += 1
         self.stack[self.registers["sp"]] = self.registers["pc"]
-        self.registers["pc"] = opcode_nibbles["last_three_nibbles"]
-        self.registers["pc"] -= 2
+        self.registers["pc"] = opcode_nibbles["last_three_bits"]
+        self.registers["pc"] -= 2        
 
     def skip_reg_eq_byte(self, opcode_nibbles):
         """
@@ -638,14 +625,14 @@ class Chip8CPU:
         Opcode Annn - LD I, addr
         """
 
-        self.registers["i"] = opcode_nibbles["last_three_nibbles"]
+        self.registers["i"] = opcode_nibbles["last_three_bits"]
 
     def jmp_reg0_with_byte(self, opcode_nibbles):
         """
         Opcode Bnnn - JP V0, addr
         """
 
-        self.registers["pc"] = (opcode_nibbles["last_three_nibbles"]) + self.registers["v"][0x0]
+        self.registers["pc"] = (opcode_nibbles["last_three_bits"]) + self.registers["v"][0x0]
         self.registers["pc"] &= 0xFFFF
         self.registers["pc"] -= 2
 
