@@ -9,6 +9,7 @@ import sys
 
 import pygame
 
+
 from Chip8Debugger import Chip8Debugger
 from Chip8Display import Chip8Display
 
@@ -72,6 +73,8 @@ class Chip8:
         # VARIABLES
         ###########################
         
+        pygame.init()
+        
         self.memory = [0] * self.MEMORY_SIZE
         
         self.registers =  {
@@ -88,9 +91,9 @@ class Chip8:
             "sound": 0x00,
         }
         
-        self.cpu_clock = pygame.time.Clock()
+        self.clock_ticks = 0
         
-        self.timer_clock = pygame.time.Clock()
+        self.timer_ticks = 0
         
         self.display = None
 
@@ -205,9 +208,9 @@ class Chip8:
                 self.debugger.run()
             
             self.emulate_cyle()
-            
-            self.update_timers()
+            self.update_timers() 
             self.cpu_clock_delay()
+
 
     def create_display(self):
         """
@@ -219,15 +222,15 @@ class Chip8:
             self.display.create_display()
 
     def init_clocks(self):
-        self.cpu_clock.tick()
-        self.timer_clock.tick()
+        self.clock_ticks = pygame.time.get_ticks()
+        self.timer_ticks = pygame.time.get_ticks()
         
     def handle_pygame_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 quit()
-    
+                
     def emulate_cyle(self):
         opcode = self.fetch_opcode()
         self.execute_opcode(opcode)
@@ -271,22 +274,29 @@ class Chip8:
         return opcode_nibbles
 
     def update_timers(self):
+        cur_tick = pygame.time.get_ticks()
+        if (cur_tick - self.timer_ticks) >= self.TIMER_SPEED:
+            self.decrease_timers()
+            self.timer_ticks = cur_tick
+
+    def cpu_clock_delay(self):
+        cur_tick = pygame.time.get_ticks()
+        if (cur_tick - self.clock_ticks) < self.CLOCK_SPEED:
+            pygame.time.delay(cur_tick - self.clock_ticks)
+            self.clock_ticks = cur_tick
+
+    def decrease_timers(self):
         """
         Update the timers.
         """
-        cur_time_ms = self.timer_clock.tick()
-        if not (cur_time_ms >= self.TIMER_SPEED):
-            return
+        # cur_time_ms = self.timer_clock.tick()
+        # if not (cur_time_ms >= self.TIMER_SPEED):
+        #     return
         
         if self.timers["delay"] > 0:
             self.timers["delay"] -= 1
         if self.timers["sound"] > 0:
             self.timers["sound"] -= 1
-
-    def cpu_clock_delay(self):
-        cpu_clock_ms = self.cpu_clock.tick()
-        if cpu_clock_ms < self.CLOCK_SPEED:
-            pygame.time.delay(self.CLOCK_SPEED - cpu_clock_ms)
 
     def lookup_opcode_0x0(self, opcode_nibbles):
         """
@@ -474,7 +484,14 @@ class Chip8:
         Add byte to Vx.
         """
 
-        self.registers["v"][opcode_nibbles["second_nibble"]] += opcode_nibbles["last_byte"]
+        second_nibble = self.registers["v"][opcode_nibbles["second_nibble"]]
+        last_byte = opcode_nibbles["last_byte"]
+        
+        temp = second_nibble + last_byte
+        if temp > 255:
+            temp -= 256
+            
+        self.registers["v"][opcode_nibbles["second_nibble"]] = temp
 
     def ld_reg_to_reg(self, opcode_nibbles):
         """
@@ -528,19 +545,21 @@ class Chip8:
         Set VF to 1 if there is a carry, 0 otherwise.
         """
 
-        if (
-            self.registers["v"][opcode_nibbles["second_nibble"]]
-            + self.registers["v"][opcode_nibbles["third_nibble"]]
-        ) > 0xFF:
-            self.registers["v"][0xF] = 1
-        else:
-            self.registers["v"][0xF] = 0
-        self.registers["v"][opcode_nibbles["second_nibble"]] += self.registers["v"][
-            opcode_nibbles["third_nibble"]
-        ]
-        self.registers["v"][opcode_nibbles["second_nibble"]] &= 0xFF
+        second_nibble = self.registers["v"][opcode_nibbles["second_nibble"]]
+        third_nibble = self.registers["v"][opcode_nibbles["third_nibble"]]
 
-    # TODO: Reimplement this
+        temp = second_nibble + third_nibble
+
+        carry = False
+        if (temp > 255):
+            carry = True
+            temp -= 256
+            
+        temp &= 0xFF
+        self.registers["v"][opcode_nibbles["second_nibble"]] = temp
+        
+        self.registers["v"][0xF] = 1 if carry else 0
+
     def sub_regs(self, opcode_nibbles):
         """
         Opcode 8xy5 - SUB Vx, Vy
@@ -549,18 +568,20 @@ class Chip8:
         Set VF to 1 if there is no borrow, 0 otherwise.
         """
 
-        if (
-            self.registers["v"][opcode_nibbles["second_nibble"]]
-            > self.registers["v"][opcode_nibbles["third_nibble"]]
-        ):
-            self.registers["v"][0xF] = 1
+        second_nibble = self.registers["v"][opcode_nibbles["second_nibble"]]
+        third_nibble = self.registers["v"][opcode_nibbles["third_nibble"]]
+        
+        borrow = False
+        if (second_nibble > third_nibble):
+            second_nibble -= third_nibble
         else:
-            self.registers["v"][0xF] = 0
-
-        self.registers["v"][opcode_nibbles["second_nibble"]] -= self.registers["v"][
-            opcode_nibbles["third_nibble"]
-        ]
-        self.registers["v"][opcode_nibbles["second_nibble"]] &= 0xFF
+            second_nibble = 256 + second_nibble - third_nibble
+            borrow = True
+        
+        second_nibble &= 0xFF
+        self.registers["v"][opcode_nibbles["second_nibble"]] = second_nibble
+        
+        self.registers["v"][0xF] = 0 if borrow else 1
 
     def right_shift_reg(self, opcode_nibbles):
         """
@@ -573,7 +594,6 @@ class Chip8:
         self.registers["v"][opcode_nibbles["second_nibble"]] >>= 1
         self.registers["v"][opcode_nibbles["second_nibble"]] &= 0xFF
 
-    # TODO: Reimplement this
     def reverse_sub_regs(self, opcode_nibbles):
         """
         Opcode 8xy7 - SUBN Vx, Vy
@@ -582,18 +602,20 @@ class Chip8:
         Set VF to 1 if there is no borrow, 0 otherwise.
         """
 
-        if (
-            self.registers["v"][opcode_nibbles["third_nibble"]]
-            > self.registers["v"][opcode_nibbles["second_nibble"]]
-        ):
-            self.registers["v"][0xF] = 1
+        second_nibble = self.registers["v"][opcode_nibbles["second_nibble"]]
+        third_nibble = self.registers["v"][opcode_nibbles["third_nibble"]]
+
+        borrow = False
+        if (third_nibble > second_nibble):
+            third_nibble -= second_nibble
         else:
-            self.registers["v"][0xF] = 0
-        self.registers["v"][opcode_nibbles["second_nibble"]] = (
-            self.registers["v"][opcode_nibbles["third_nibble"]]
-            - self.registers["v"][opcode_nibbles["second_nibble"]]
-        )
-        self.registers["v"][opcode_nibbles["second_nibble"]] &= 0xFF
+            third_nibble = 256 + third_nibble - second_nibble
+            borrow = True
+
+        third_nibble &= 0xFF
+        self.registers["v"][opcode_nibbles["second_nibble"]] = third_nibble
+        
+        self.registers["v"][0xF] = 0 if borrow else 1
 
     def left_shift_reg(self, opcode_nibbles):
         """
@@ -709,7 +731,7 @@ class Chip8:
         Load the value of DT into Vx.
         """
 
-        self.registers["v"][opcode_nibbles["second_nibble"]] = self.delay_timer
+        self.registers["v"][opcode_nibbles["second_nibble"]] = self.timers["delay"]
 
     def wait_for_input(self, opcode_nibbles):
         """
@@ -779,18 +801,21 @@ class Chip8:
         Load the BCD representation of Vx into memory locations I, I+1, and I+2.
         """
 
-        # 100s place
+        second_nibble = self.registers["v"][opcode_nibbles["second_nibble"]]
+        
+        # 100s places
         self.memory[self.registers["i"]] = (
-            int((self.registers["v"][opcode_nibbles["second_nibble"]] / 100) % 10) & 0xFF
+            int((second_nibble / 100) % 10) & 0xFF
         )
         
         # 10s place
         self.memory[self.registers["i"] + 1] = (
-            int((self.registers["v"][opcode_nibbles["second_nibble"]] / 10) % 10) & 0xFF
+            int((second_nibble / 10) % 10) & 0xFF
         )
+        
         # 1s place
         self.memory[self.registers["i"] + 2] = (
-            int(self.registers["v"][opcode_nibbles["second_nibble"]] % 10) & 0xFF
+            int(second_nibble % 10) & 0xFF
         )
 
     def store_regs_at_i(self, opcode_nibbles):
@@ -819,5 +844,5 @@ class Chip8:
 
 if __name__ == "__main__":
     x = Chip8()
-    x.load_rom("test_opcode.ch8")
+    x.load_rom("break.ch8")
     x.main_loop()

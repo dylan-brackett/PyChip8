@@ -131,5 +131,5 @@ class Chip8Display:
         :param y_pos: y-coordinate of the pixel to check.
         """
         
-        return self.display.get_at((x_pos, y_pos)) == self.MAIN_COLOR
+        return self.display.get_at((x_pos * self.scale, y_pos * self.scale)) == self.MAIN_COLOR
         
