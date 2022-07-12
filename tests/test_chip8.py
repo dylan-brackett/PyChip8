@@ -1,6 +1,6 @@
 import unittest
 
-from Chip8 import Chip8
+from ..chip8 import Chip8CPU
 
 
 class Chip8_Test(unittest.TestCase):
@@ -8,7 +8,7 @@ class Chip8_Test(unittest.TestCase):
         super(Chip8_Test, self).__init__(*args, **kwargs)
 
     def setUp(self):
-        self.chip8 = Chip8()
+        self.chip8 = Chip8CPU()
 
     def test_load_rom(self):
         """

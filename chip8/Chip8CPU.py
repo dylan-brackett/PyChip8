@@ -1,7 +1,11 @@
 """
 Chip8 emulator written in Python
 
-:author dylan-brackett
+author: dylan-brackett
+
+TODO: Add sound
+TODO: Add more unit tests
+TODO: Further refactor the code
 """
 
 import random
@@ -9,9 +13,11 @@ import sys
 
 import pygame
 
-
-from Chip8Debugger import Chip8Debugger
-from Chip8Display import Chip8Display
+from .Chip8Debugger import Chip8Debugger
+from .Chip8Display import Chip8Display
+from .config import (CLOCK_SPEED, DEBUG, DISPLAY_HEIGHT, DISPLAY_WIDTH,
+                    FONT_ADDR_START, KEY_MAPPINGS, MEMORY_SIZE, NUM_REGISTERS,
+                    STACK_SIZE, START_ADDR, TIMER_SPEED)
 
 
 class InvalidLookup(Exception):
@@ -27,51 +33,36 @@ class DataTooLarge(Exception):
     pass
 
 # CPU class
-class Chip8:
+class Chip8CPU:
     def __init__(self):
         
         ###########################
         # CONSTANTS
         ###########################
         
-        self.STACK_SIZE = 16
-        self.MEMORY_SIZE = 4096
-        self.NUM_REGISTERS = 16
-        self.START_ADDR = 0x200
-        self.DISPLAY_WIDTH = 64
-        self.DISPLAY_HEIGHT = 32
+        self.STACK_SIZE = STACK_SIZE
+        self.MEMORY_SIZE = MEMORY_SIZE
+        self.NUM_REGISTERS = NUM_REGISTERS
+        self.START_ADDR = START_ADDR
+        self.DISPLAY_WIDTH = DISPLAY_WIDTH
+        self.DISPLAY_HEIGHT = DISPLAY_HEIGHT
         
-        self.CLOCK_SPEED = round((1 / 500) * 1000) # Time in milliseconds between each instruction
-        self.TIMER_SPEED = round((1 /60) * 1000)   # Time in milliseconds between each timer update
+        self.CLOCK_SPEED = CLOCK_SPEED
+        self.TIMER_SPEED = TIMER_SPEED
         
         
-        self.FONT_ADDR_START = 0x0
+        self.FONT_ADDR_START = FONT_ADDR_START
         
-        self.KEY_MAPPINGS = {
-            0x1: pygame.K_1,
-            0x2: pygame.K_2,
-            0x3: pygame.K_3,
-            0xC: pygame.K_4,
-            0x4: pygame.K_q,
-            0x5: pygame.K_w,
-            0x6: pygame.K_e,
-            0xD: pygame.K_r,
-            0x7: pygame.K_a,
-            0x8: pygame.K_s,
-            0x9: pygame.K_d,
-            0xE: pygame.K_f,
-            0xA: pygame.K_z,
-            0x0: pygame.K_x,
-            0xB: pygame.K_c,
-            0xF: pygame.K_v
-        }
+        self.KEY_MAPPINGS = KEY_MAPPINGS
         
-        self.DEBUG = True
-        self.debugger = Chip8Debugger(self)
+        self.DEBUG = DEBUG
 
         ###########################
         # VARIABLES
         ###########################
+        
+        if self.DEBUG:
+            self.debugger = Chip8Debugger(self)
         
         pygame.init()
         
@@ -88,7 +79,7 @@ class Chip8:
 
         self.timers = {
             "delay": 0x00,
-            "sound": 0x00,
+            "sound": 0x00,  
         }
         
         self.clock_ticks = 0
@@ -838,11 +829,7 @@ class Chip8:
         for i in range(opcode_nibbles["second_nibble"] + 1):
             self.registers["v"][i] = self.memory[self.registers["i"] + i]
 
-    ###########################
-    # Utility functions
-    ###########################
-
 if __name__ == "__main__":
-    x = Chip8()
+    x = Chip8CPU()
     x.load_rom("break.ch8")
     x.main_loop()
