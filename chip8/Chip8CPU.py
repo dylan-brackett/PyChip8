@@ -391,7 +391,7 @@ class Chip8CPU:
         self.stack[self.registers["sp"]] = 0
         self.registers["sp"] -= 1
 
-    def jump_addr(self):
+    def jump_addr(self, opcode_nibbles):
         """
         Opcode 1nnn - JP addr
         
