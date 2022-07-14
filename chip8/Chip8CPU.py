@@ -370,7 +370,7 @@ class Chip8CPU:
     # Opcode functions
     ###########################
 
-    def clear_screen(self, opcode_nibbles):
+    def clear_screen(self, opcode_nibbles=None):
         """
         Opcode 00E0 - CLS
         
@@ -391,7 +391,7 @@ class Chip8CPU:
         self.stack[self.registers["sp"]] = 0
         self.registers["sp"] -= 1
 
-    def jump_addr(self, opcode_nibbles):
+    def jump_addr(self):
         """
         Opcode 1nnn - JP addr
         
@@ -612,6 +612,8 @@ class Chip8CPU:
     def skip_reg_neq_reg(self, opcode_nibbles):
         """
         Opcode 9xy0 - SNE Vx, Vy
+        
+        Skip next instruction if Vx != Vy.
         """
 
         if (
@@ -623,6 +625,8 @@ class Chip8CPU:
     def ld_i(self, opcode_nibbles):
         """
         Opcode Annn - LD I, addr
+        
+        Load I with nnn.
         """
 
         self.registers["i"] = opcode_nibbles["last_three_bits"]
@@ -630,6 +634,8 @@ class Chip8CPU:
     def jmp_reg0_with_byte(self, opcode_nibbles):
         """
         Opcode Bnnn - JP V0, addr
+        
+        Jump to location nnn + V0.
         """
 
         self.registers["pc"] = (opcode_nibbles["last_three_bits"]) + self.registers["v"][0x0]
@@ -639,6 +645,8 @@ class Chip8CPU:
     def store_rnd_anded_byte_to_reg(self, opcode_nibbles):
         """
         Opcode Cxkk - RND Vx, byte
+        
+        Set Vx to random byte ANDed with kk.
         """
 
         self.registers["v"][opcode_nibbles["second_nibble"]] = (

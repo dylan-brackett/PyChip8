@@ -1,14 +1,16 @@
 import os
 import sys
 import unittest
+from unittest import mock
+from unittest.mock import MagicMock, patch
 
 sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/../")
 
 from chip8.Chip8CPU import Chip8CPU
 
-class Chip8CpuTest(unittest.TestCase):
+class TestChip8CPU(unittest.TestCase):
     def __init__(self, *args, **kwargs):
-        super(Chip8CpuTest, self).__init__(*args, **kwargs)
+        super(TestChip8CPU, self).__init__(*args, **kwargs)
 
     def setUp(self):
         self.chip8 = Chip8CPU()
@@ -25,6 +27,20 @@ class Chip8CpuTest(unittest.TestCase):
         # Last byte of file
         self.assertEqual(self.chip8.memory[0x200 + 0x01DD], 0xDC)
 
+
+    def test_clear_screen(self):
+        """
+        Test Opcode 0x00E0 - CLS
+        
+        Clear the screen.
+        """
+
+        self.chip8.display = MagicMock()
+        
+        self.chip8.clear_screen()
+        
+        self.chip8.display.clear_display.assert_called_with()
+        self.chip8.display.update_display.assert_called_with()
 
     def test_return_from_subrtn(self):
         """
@@ -533,7 +549,138 @@ class Chip8CpuTest(unittest.TestCase):
         
         self.assertEqual(self.chip8.registers["v"][0x3], 0xE0)
         self.assertEqual(self.chip8.registers["v"][0xF], 0x1)
+        
+    def test_reg_neq_reg_eq(self):
+        """
+        Test Opcode 9xy0 - SNE Vx, Vy
+        Test when equal
+        
+        Skip next instruction if Vx != Vy.
+        """
+        
+        nibble_dict = {
+            "second_nibble": 0xA,
+            "third_nibble": 0xB,
+        }
+        
+        self.chip8.registers["v"][0xA] = 0x0A
+        self.chip8.registers["v"][0xB] = 0x0A
+        
+        self.chip8.skip_reg_neq_reg(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["pc"], 0x200)
+        
+    def test_reg_neq_reg_neq(self):
+        """
+        Test Opcode 9xy0 - SNE Vx, Vy
+        Test when not equal
+        
+        Skip next instruction if Vx != Vy.
+        """
+        
+        nibble_dict = {
+            "second_nibble": 0xC,
+            "third_nibble": 0x7,
+        }
+        
+        self.chip8.registers["v"][0xC] = 0x10
+        self.chip8.registers["v"][0x7] = 0x22
+        
+        self.chip8.skip_reg_neq_reg(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["pc"], 0x202)
+        
+    def test_ld_i(self):
+        """
+        Test Opcode Annn - LD I, addr
+        
+        Load I with nnn
+        """
+        
+        nibble_dict = {
+            "last_three_bits": 0x400
+        }
+        
+        self.chip8.registers["i"] = 0x0
+        
+        self.chip8.ld_i(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["i"], 0x400)
+        
 
+    def test_jmp_reg0_with_byte(self):
+        """
+        Opcode Bnnn - JP V0, addr
+        
+        Jump to location nnn + V0.
+        """
+        
+        nibble_dict = {
+            "last_three_bits": 0xB00
+        }
+        
+        self.chip8.registers["v"][0x0] = 0xF
+        
+        self.chip8.jmp_reg0_with_byte(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["pc"], 0xB0D)
+        
+    @patch("random.randint")  
+    def test_store_rnd_anded_byte_to_reg(self, mock_randint):
+        """
+        Opcode Cxkk - RND Vx, byte
+        
+        Set Vx to random byte ANDed with kk.
+        """
+        
+        mock_randint.return_value = 0xCD
+        
+        nibble_dict = {
+            "second_nibble": 0xC,
+            "last_byte": 0x07
+        }
+        
+        self.chip8.registers["v"][0xC] = 0x0
+        
+        self.chip8.store_rnd_anded_byte_to_reg(nibble_dict)
+        
+        self.assertEqual(self.chip8.registers["v"][0xC], 0x05)
+
+    def test_draw_bytes(self):
+        """
+        Test Opcode Dxyn - DRW Vx, Vy, nibble
+        
+        Draws a sprite at coordinate (Vx, Vy) with width 8 pixels and height n pixels.
+        """
+        
+        self.chip8.display = MagicMock()
+        self.chip8.display.draw_byte.return_value = False
+        
+        nibble_dict = {
+            "second_nibble": 0xD,
+            "third_nibble": 0x0,
+            "fourth_nibble": 0x3
+        }
+        
+        self.chip8.registers["v"][0xD] = 0x01
+        self.chip8.registers["v"][0x0] = 0x03
+        
+        self.chip8.registers["i"] = 0x50
+        
+        self.chip8.memory[self.chip8.registers["i"]]     = 0xF0
+        self.chip8.memory[self.chip8.registers["i"] + 1] = 0xBB
+        self.chip8.memory[self.chip8.registers["i"] + 2] = 0xA7
+        
+        self.chip8.draw_bytes(nibble_dict)
+        
+        self.chip8.display.draw_byte.assert_has_calls([
+            mock.call(0x01, 0x03, 0xF0),
+            mock.call(0x01, 0x04, 0xBB),
+            mock.call(0x01, 0x05, 0xA7)
+        ])        
+        
+        
+        
 
 if __name__ == "__main__":
     unittest.main()
