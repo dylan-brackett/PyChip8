@@ -66,7 +66,7 @@ class TestChip8CPU(unittest.TestCase):
         """
         
         nibble_dict = {
-            "last_three_bits": 0x0300   
+            "last_three": 0x0300   
         }
         
         self.chip8.registers["pc"] = 0x230
@@ -83,7 +83,7 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "last_three_bits": 0x0350   
+            "last_three": 0x0350   
         }
         
         self.chip8.registers["pc"] = 0x240
@@ -107,8 +107,8 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "second_nibble": 0x1,
-            "last_byte": 0x23,
+            "second": 0x1,
+            "last_two": 0x23,
         }
         
         self.chip8.registers["pc"] = 0x330
@@ -129,8 +129,8 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "second_nibble": 0x2,
-            "last_byte": 0x12,
+            "second": 0x2,
+            "last_two": 0x12,
         }
         
         self.chip8.registers["pc"] = 0x430
@@ -150,8 +150,8 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "second_nibble": 0x4,
-            "last_byte": 0x10,
+            "second": 0x4,
+            "last_two": 0x10,
         }
         
         self.chip8.registers["pc"] = 0x510
@@ -171,8 +171,8 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "second_nibble": 0x8,
-            "last_byte": 0x50,
+            "second": 0x8,
+            "last_two": 0x50,
         }
         
         self.chip8.registers["pc"] = 0x600
@@ -192,8 +192,8 @@ class TestChip8CPU(unittest.TestCase):
         """
         
         nibble_dict = {
-            "second_nibble": 0x4,
-            "third_nibble": 0x0,
+            "second": 0x4,
+            "third": 0x0,
         }
         
         self.chip8.registers["pc"] = 0x440
@@ -214,8 +214,8 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "second_nibble": 0xE,
-            "third_nibble": 0xF,
+            "second": 0xE,
+            "third": 0xF,
         }
         
         self.chip8.registers["pc"] = 0xFA0
@@ -235,8 +235,8 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "second_nibble": 0xB,
-            "last_byte": 0xBB,
+            "second": 0xB,
+            "last_two": 0xBB,
         }
         
         self.chip8.registers["v"][0xB] = 0x0
@@ -253,8 +253,8 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "second_nibble": 0xC,
-            "last_byte": 0xDA,
+            "second": 0xC,
+            "last_two": 0xDA,
         }
         
         self.chip8.registers["v"][0xC] = 0x01
@@ -272,8 +272,8 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "second_nibble": 0xD,
-            "last_byte": 0xFF,
+            "second": 0xD,
+            "last_two": 0xFF,
         }
         
         self.chip8.registers["v"][0xD] = 0x0A
@@ -290,8 +290,8 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "second_nibble": 0x1,
-            "third_nibble": 0x2,
+            "second": 0x1,
+            "third": 0x2,
         }
         
         self.chip8.registers["v"][0x1] = 0x00
@@ -310,8 +310,8 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "second_nibble": 0x2,
-            "third_nibble": 0x3,
+            "second": 0x2,
+            "third": 0x3,
         }
         
         self.chip8.registers["v"][0x2] = 0x0F
@@ -329,8 +329,8 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "second_nibble": 0xD,
-            "third_nibble": 0xE,
+            "second": 0xD,
+            "third": 0xE,
         }
         
         self.chip8.registers["v"][0xD] = 0x0A
@@ -348,8 +348,8 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "second_nibble": 0x4,
-            "third_nibble": 0x5,
+            "second": 0x4,
+            "third": 0x5,
         }
         
         self.chip8.registers["v"][0x4] = 0x0F
@@ -369,8 +369,8 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "second_nibble": 0x6,
-            "third_nibble": 0x7,
+            "second": 0x6,
+            "third": 0x7,
         }
         
         self.chip8.registers["v"][0x6] = 0x0F
@@ -391,8 +391,8 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "second_nibble": 0x8,
-            "third_nibble": 0x9,
+            "second": 0x8,
+            "third": 0x9,
         }
         
         self.chip8.registers["v"][0x8] = 0xFF
@@ -413,8 +413,8 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "second_nibble": 0xA,
-            "third_nibble": 0xB,
+            "second": 0xA,
+            "third": 0xB,
         }
         
         self.chip8.registers["v"][0xA] = 0xAC
@@ -435,8 +435,8 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "second_nibble": 0xC,
-            "third_nibble": 0xD,
+            "second": 0xC,
+            "third": 0xD,
         }
         
         self.chip8.registers["v"][0xC] = 0x0A
@@ -455,8 +455,8 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "second_nibble": 0xE,
-            "third_nibble": 0xF,
+            "second": 0xE,
+            "third": 0xF,
         }
         
         self.chip8.registers["v"][0xE] = 0x0F
@@ -476,8 +476,8 @@ class TestChip8CPU(unittest.TestCase):
 
 
         nibble_dict = {
-            "second_nibble": 0xA,
-            "third_nibble": 0xE,
+            "second": 0xA,
+            "third": 0xE,
         }
         
         self.chip8.registers["v"][0xA] = 0xCA
@@ -498,8 +498,8 @@ class TestChip8CPU(unittest.TestCase):
         """
 
         nibble_dict = {
-            "second_nibble": 0xB,
-            "third_nibble": 0xF,
+            "second": 0xB,
+            "third": 0xF,
         }
         
         self.chip8.registers["v"][0xB] = 0xF0
@@ -520,7 +520,7 @@ class TestChip8CPU(unittest.TestCase):
         """
             
         nibble_dict = {
-            "second_nibble": 0xE,
+            "second": 0xE,
         }
             
         self.chip8.registers["v"][0xE] = 0x0A
@@ -540,7 +540,7 @@ class TestChip8CPU(unittest.TestCase):
         """
             
         nibble_dict = {
-            "second_nibble": 0x3,
+            "second": 0x3,
         }
             
         self.chip8.registers["v"][0x3] = 0xF0
@@ -559,8 +559,8 @@ class TestChip8CPU(unittest.TestCase):
         """
         
         nibble_dict = {
-            "second_nibble": 0xA,
-            "third_nibble": 0xB,
+            "second": 0xA,
+            "third": 0xB,
         }
         
         self.chip8.registers["v"][0xA] = 0x0A
@@ -579,8 +579,8 @@ class TestChip8CPU(unittest.TestCase):
         """
         
         nibble_dict = {
-            "second_nibble": 0xC,
-            "third_nibble": 0x7,
+            "second": 0xC,
+            "third": 0x7,
         }
         
         self.chip8.registers["v"][0xC] = 0x10
@@ -598,7 +598,7 @@ class TestChip8CPU(unittest.TestCase):
         """
         
         nibble_dict = {
-            "last_three_bits": 0x400
+            "last_three": 0x400
         }
         
         self.chip8.registers["i"] = 0x0
@@ -616,7 +616,7 @@ class TestChip8CPU(unittest.TestCase):
         """
         
         nibble_dict = {
-            "last_three_bits": 0xB00
+            "last_three": 0xB00
         }
         
         self.chip8.registers["v"][0x0] = 0xF
@@ -636,8 +636,8 @@ class TestChip8CPU(unittest.TestCase):
         mock_randint.return_value = 0xCD
         
         nibble_dict = {
-            "second_nibble": 0xC,
-            "last_byte": 0x07
+            "second": 0xC,
+            "last_two": 0x07
         }
         
         self.chip8.registers["v"][0xC] = 0x0
@@ -646,9 +646,10 @@ class TestChip8CPU(unittest.TestCase):
         
         self.assertEqual(self.chip8.registers["v"][0xC], 0x05)
 
-    def test_draw_bytes(self):
+    def test_draw_bytes_no_collision(self):
         """
         Test Opcode Dxyn - DRW Vx, Vy, nibble
+        Test with no collision
         
         Draws a sprite at coordinate (Vx, Vy) with width 8 pixels and height n pixels.
         """
@@ -657,9 +658,9 @@ class TestChip8CPU(unittest.TestCase):
         self.chip8.display.draw_byte.return_value = False
         
         nibble_dict = {
-            "second_nibble": 0xD,
-            "third_nibble": 0x0,
-            "fourth_nibble": 0x3
+            "second": 0xD,
+            "third": 0x0,
+            "fourth": 0x3
         }
         
         self.chip8.registers["v"][0xD] = 0x01
@@ -677,10 +678,86 @@ class TestChip8CPU(unittest.TestCase):
             mock.call(0x01, 0x03, 0xF0),
             mock.call(0x01, 0x04, 0xBB),
             mock.call(0x01, 0x05, 0xA7)
-        ])        
+        ])
+        
+        self.assertEqual(self.chip8.registers["v"][0xF], 0x0)
+        
+    def test_draw_bytes_collision(self):
+        """
+        Test Opcode Dxyn - DRW Vx, Vy, nibble
+        Test with collision
+        
+        Draws a sprite at coordinate (Vx, Vy) with width 8 pixels and height n pixels.
+        """
+        
+        self.chip8.display = MagicMock()
+        self.chip8.display.draw_byte.return_value = True
+        
+        nibble_dict = {
+            "second": 0xE,
+            "third": 0x4,
+            "fourth": 0x1
+        }
+        
+        self.chip8.registers["v"][0xE] = 0x10
+        self.chip8.registers["v"][0x4] = 0x0A
+        
+        self.chip8.registers["i"] = 0x10C
+        
+        self.chip8.memory[self.chip8.registers["i"]] = 0xEE
+        
+        self.chip8.draw_bytes(nibble_dict)
+        
+        self.chip8.display.draw_byte.assert_called_with(0x10, 0x0A, 0xEE)
+        
+        self.assertEqual(self.chip8.registers["v"][0xF], 0x1)
+        
+    @patch.object(Chip8CPU, "is_key_pressed")
+    def test_skip_on_keypress_pressed(self, is_key_pressed_mock: MagicMock):
+        """
+        Test Opcode Ex9E - SKP Vx
+        Test when "pressed"
+        
+        Skip next instruction if key with the value of Vx is pressed.
+        """
+        
+        is_key_pressed_mock.return_value = True
+        
+        opcode_nibbles = {
+            "second": 0xE,
+        }
+        
+        self.chip8.registers["v"][0xE] = 0xF
+        
+        self.chip8.skip_on_keypress(opcode_nibbles)
+        
+        is_key_pressed_mock.assert_called_with(0xF)
+        
+        self.assertEqual(self.chip8.registers["pc"], 0x202)
+        
+    @patch.object(Chip8CPU, "is_key_pressed")
+    def test_skip_on_keypress_not_pressed(self, is_key_pressed_mock: MagicMock):
+        """
+        Test Opcode Ex9E - SKP Vx
+        Test when not "pressed"
+        
+        Skip next instruction if key with the value of Vx is pressed.
+        """
+        
+        is_key_pressed_mock.return_value = False
+        
+        opcode_nibbles = {
+            "second": 0xE,
+        }
+        
+        self.chip8.registers["v"][0xE] = 0xF
+        
+        self.chip8.skip_on_keypress(opcode_nibbles)
+        
+        is_key_pressed_mock.assert_called_with(0xF)
+        
+        self.assertEqual(self.chip8.registers["pc"], 0x200)
         
         
-        
-
 if __name__ == "__main__":
     unittest.main()

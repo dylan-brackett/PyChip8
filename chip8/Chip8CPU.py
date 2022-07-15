@@ -11,6 +11,7 @@ TODO: Add Super Chip-8 features
 
 import random
 import sys
+from typing import Dict
 
 import pygame
 
@@ -90,7 +91,7 @@ class Chip8CPU:
         
         self.display = None
 
-        self.load_fontset()
+        # self.load_fontset()
 
         ###########################
         # OPCODE LOOKUP TABLES
@@ -240,7 +241,7 @@ class Chip8CPU:
     def execute_opcode(self, opcode):
         opcode_nibbles = self.get_opcode_nibble_dict(opcode)
                 
-        first_nibble = opcode_nibbles["first_nibble"]
+        first_nibble = opcode_nibbles["first"]
         
         lookup_function = self.opcode_first_nibble_lookup[first_nibble]
         lookup_function(opcode_nibbles)
@@ -256,12 +257,12 @@ class Chip8CPU:
         combined_opcode = (opcode[0] << 8 | opcode[1]) & 0xFFFF
         opcode_nibbles = {
             "all"              : combined_opcode,
-            "first_nibble"      : (combined_opcode & 0xF000) >> 12,
-            "second_nibble"     : (combined_opcode & 0x0F00) >> 8,
-            "third_nibble"      : (combined_opcode & 0x00F0) >> 4,
-            "fourth_nibble"     : combined_opcode & 0x000F,
-            "last_three_bits": combined_opcode & 0x0FFF,           # 12 bit data, normally addr
-            "last_byte"         : combined_opcode & 0x00FF            # Last byte in opcode
+            "first"      : (combined_opcode & 0xF000) >> 12,
+            "second"     : (combined_opcode & 0x0F00) >> 8,
+            "third"      : (combined_opcode & 0x00F0) >> 4,
+            "fourth"     : combined_opcode & 0x000F,
+            "last_three": combined_opcode & 0x0FFF,           # 12 bit data, normally addr
+            "last_two"         : combined_opcode & 0x00FF            # Last byte in opcode
         }
         
         return opcode_nibbles
@@ -291,57 +292,57 @@ class Chip8CPU:
         if self.timers["sound"] > 0:
             self.timers["sound"] -= 1
 
-    def lookup_opcode_0x0(self, opcode_nibbles):
+    def lookup_opcode_0x0(self, opcode_nibbles: Dict[str, int]):
         """
         Lookup opcode beginning with 0x0, running the appropriate function
         based on the last byte.
 
-        :param opcode_nibbles: dict of opcode nibbles
+        :param opcode_nibbles: dict[str, int] of opcode nibbles
         """
         
-        last_byte = opcode_nibbles["last_byte"]
+        last_byte = opcode_nibbles["last_two"]
         self.validate_lookup(self.opcode_0x0_last_byte_lookup, last_byte)
     
         function_lookup = self.opcode_0x0_last_byte_lookup[last_byte]
         function_lookup(opcode_nibbles)
         
-    def lookup_opcode_0x8(self, opcode_nibbles):
+    def lookup_opcode_0x8(self, opcode_nibbles: Dict[str, int]):
         """
         Lookup opcode beginning with 0x8, running the appropriate function
         based on the fourth nibble.
 
-        :param opcode_nibbles: dict of opcode nibbles
+        :param opcode_nibbles: dict[str, int] of opcode nibbles
         """
         
-        fourth_nibble = opcode_nibbles["fourth_nibble"]
+        fourth_nibble = opcode_nibbles["fourth"]
         self.validate_lookup(self.opcode_0x8_fourth_nibble_lookup, fourth_nibble)
         
         function_lookup = self.opcode_0x8_fourth_nibble_lookup[fourth_nibble]
         function_lookup(opcode_nibbles)
         
-    def lookup_opcode_0xE(self, opcode_nibbles):
+    def lookup_opcode_0xE(self, opcode_nibbles: Dict[str, int]):
         """
         Lookup opcode beginning with 0xE, running the appropriate function
         based on the last byte.
 
-        :param opcode_nibbles: dict of opcode nibbles
+        :param opcode_nibbles: dict[str, int] of opcode nibbles
         """
         
-        last_byte = opcode_nibbles["last_byte"]
+        last_byte = opcode_nibbles["last_two"]
         self.validate_lookup(self.opcode_0xE_last_byte_lookup, last_byte)
     
         function_lookup = self.opcode_0xE_last_byte_lookup[last_byte]
         function_lookup(opcode_nibbles)
         
-    def lookup_opcode_0xF(self, opcode_nibbles):
+    def lookup_opcode_0xF(self, opcode_nibbles: Dict[str, int]):
         """
         Lookup opcode beginning with 0xF, running the appropriate function
         based on the last byte.
 
-        :param opcode_nibbles: dict of opcode nibbles
+        :param opcode_nibbles: dict[str, int] of opcode nibbles
         """
         
-        last_byte = opcode_nibbles["last_byte"]
+        last_byte = opcode_nibbles["last_two"]
         self.validate_lookup(self.opcode_0xF_last_byte_lookup, last_byte)
     
         function_lookup = self.opcode_0xF_last_byte_lookup[last_byte]
@@ -391,17 +392,17 @@ class Chip8CPU:
         self.stack[self.registers["sp"]] = 0
         self.registers["sp"] -= 1
 
-    def jump_addr(self, opcode_nibbles):
+    def jump_addr(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode 1nnn - JP addr
         
         Jump to address nnn.
         """
 
-        self.registers["pc"] = opcode_nibbles["last_three_bits"]
+        self.registers["pc"] = opcode_nibbles["last_three"]
         self.registers["pc"] -= 2
 
-    def call_addr(self, opcode_nibbles):
+    def call_addr(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode 2nnn - CALL addr
         
@@ -410,30 +411,30 @@ class Chip8CPU:
 
         self.registers["sp"] += 1
         self.stack[self.registers["sp"]] = self.registers["pc"]
-        self.registers["pc"] = opcode_nibbles["last_three_bits"]
+        self.registers["pc"] = opcode_nibbles["last_three"]
         self.registers["pc"] -= 2        
 
-    def skip_reg_eq_byte(self, opcode_nibbles):
+    def skip_reg_eq_byte(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode 3xkk - SE Vx, byte
         
         Skip next instruction if Vx = kk.
         """
 
-        if self.registers["v"][opcode_nibbles["second_nibble"]] == opcode_nibbles["last_byte"]:
+        if self.registers["v"][opcode_nibbles["second"]] == opcode_nibbles["last_two"]:
             self.registers["pc"] += 2
 
-    def skip_reg_neq_byte(self, opcode_nibbles):
+    def skip_reg_neq_byte(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode 4xkk - SNE Vx, byte
         
         Skip next instruction if Vx != kk.
         """
 
-        if self.registers["v"][opcode_nibbles["second_nibble"]] != opcode_nibbles["last_byte"]:
+        if self.registers["v"][opcode_nibbles["second"]] != opcode_nibbles["last_two"]:
             self.registers["pc"] += 2
 
-    def skip_reg_eq_reg(self, opcode_nibbles):
+    def skip_reg_eq_reg(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode 5xy0 - SE Vx, Vy
         
@@ -441,81 +442,81 @@ class Chip8CPU:
         """
 
         if (
-            self.registers["v"][opcode_nibbles["second_nibble"]]
-            == self.registers["v"][opcode_nibbles["third_nibble"]]
+            self.registers["v"][opcode_nibbles["second"]]
+            == self.registers["v"][opcode_nibbles["third"]]
         ):
             self.registers["pc"] += 2
 
-    def ld_to_reg(self, opcode_nibbles):
+    def ld_to_reg(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode 6xkk - LD Vx, byte
         
         Load byte into Vx.
         """
 
-        self.registers["v"][opcode_nibbles["second_nibble"]] = opcode_nibbles["last_byte"]
+        self.registers["v"][opcode_nibbles["second"]] = opcode_nibbles["last_two"]
 
-    def add_byte_to_reg(self, opcode_nibbles):
+    def add_byte_to_reg(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode 7xkk - ADD Vx, byte
         
         Add byte to Vx.
         """
 
-        second_nibble = self.registers["v"][opcode_nibbles["second_nibble"]]
-        last_byte = opcode_nibbles["last_byte"]
+        second_nibble = self.registers["v"][opcode_nibbles["second"]]
+        last_byte = opcode_nibbles["last_two"]
         
         temp = second_nibble + last_byte
         if temp > 255:
             temp -= 256
             
-        self.registers["v"][opcode_nibbles["second_nibble"]] = temp
+        self.registers["v"][opcode_nibbles["second"]] = temp
 
-    def ld_reg_to_reg(self, opcode_nibbles):
+    def ld_reg_to_reg(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode 8xy0 - LD Vx, Vy
         
         Load Vy into Vx.
         """
 
-        self.registers["v"][opcode_nibbles["second_nibble"]] = self.registers["v"][
-            opcode_nibbles["third_nibble"]
+        self.registers["v"][opcode_nibbles["second"]] = self.registers["v"][
+            opcode_nibbles["third"]
         ]
 
-    def or_regs(self, opcode_nibbles):
+    def or_regs(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode 8xy1 - OR Vx, Vy
         
         Or Vx and Vy. Set Vx to result.
         """
 
-        self.registers["v"][opcode_nibbles["second_nibble"]] |= self.registers["v"][
-            opcode_nibbles["third_nibble"]
+        self.registers["v"][opcode_nibbles["second"]] |= self.registers["v"][
+            opcode_nibbles["third"]
         ]
 
-    def and_regs(self, opcode_nibbles):
+    def and_regs(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode 8xy2 - AND Vx, Vy
         
         And Vx and Vy. Set Vx to result.
         """
 
-        self.registers["v"][opcode_nibbles["second_nibble"]] &= self.registers["v"][
-            opcode_nibbles["third_nibble"]
+        self.registers["v"][opcode_nibbles["second"]] &= self.registers["v"][
+            opcode_nibbles["third"]
         ]
 
-    def xor_regs(self, opcode_nibbles):
+    def xor_regs(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode 8xy3 - XOR Vx, Vy
         
         Xor Vx and Vy. Set Vx to result.
         """
 
-        self.registers["v"][opcode_nibbles["second_nibble"]] ^= self.registers["v"][
-            opcode_nibbles["third_nibble"]
+        self.registers["v"][opcode_nibbles["second"]] ^= self.registers["v"][
+            opcode_nibbles["third"]
         ]
 
-    def add_regs(self, opcode_nibbles):
+    def add_regs(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode 8xy4 - ADD Vx, Vy
         
@@ -523,8 +524,8 @@ class Chip8CPU:
         Set VF to 1 if there is a carry, 0 otherwise.
         """
 
-        second_nibble = self.registers["v"][opcode_nibbles["second_nibble"]]
-        third_nibble = self.registers["v"][opcode_nibbles["third_nibble"]]
+        second_nibble = self.registers["v"][opcode_nibbles["second"]]
+        third_nibble = self.registers["v"][opcode_nibbles["third"]]
 
         temp = second_nibble + third_nibble
 
@@ -534,11 +535,11 @@ class Chip8CPU:
             temp -= 256
             
         temp &= 0xFF
-        self.registers["v"][opcode_nibbles["second_nibble"]] = temp
-        
+        self.registers["v"][opcode_nibbles["second"]] = temp
         self.registers["v"][0xF] = 1 if carry else 0
+        
 
-    def sub_regs(self, opcode_nibbles):
+    def sub_regs(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode 8xy5 - SUB Vx, Vy
         
@@ -546,8 +547,8 @@ class Chip8CPU:
         Set VF to 1 if there is no borrow, 0 otherwise.
         """
 
-        second_nibble = self.registers["v"][opcode_nibbles["second_nibble"]]
-        third_nibble = self.registers["v"][opcode_nibbles["third_nibble"]]
+        second_nibble = self.registers["v"][opcode_nibbles["second"]]
+        third_nibble = self.registers["v"][opcode_nibbles["third"]]
         
         borrow = False
         if (second_nibble > third_nibble):
@@ -557,22 +558,22 @@ class Chip8CPU:
             borrow = True
         
         second_nibble &= 0xFF
-        self.registers["v"][opcode_nibbles["second_nibble"]] = second_nibble
+        self.registers["v"][opcode_nibbles["second"]] = second_nibble
         
         self.registers["v"][0xF] = 0 if borrow else 1
 
-    def right_shift_reg(self, opcode_nibbles):
+    def right_shift_reg(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode 8xy6 - SHR Vx {, Vy}
         
         Right shift Vx. Set Vx to result.
         """
 
-        self.registers["v"][0xF] = self.registers["v"][opcode_nibbles["second_nibble"]] & 0x1
-        self.registers["v"][opcode_nibbles["second_nibble"]] >>= 1
-        self.registers["v"][opcode_nibbles["second_nibble"]] &= 0xFF
+        self.registers["v"][0xF] = self.registers["v"][opcode_nibbles["second"]] & 0x1
+        self.registers["v"][opcode_nibbles["second"]] >>= 1
+        self.registers["v"][opcode_nibbles["second"]] &= 0xFF
 
-    def reverse_sub_regs(self, opcode_nibbles):
+    def reverse_sub_regs(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode 8xy7 - SUBN Vx, Vy
         
@@ -580,8 +581,8 @@ class Chip8CPU:
         Set VF to 1 if there is no borrow, 0 otherwise.
         """
 
-        second_nibble = self.registers["v"][opcode_nibbles["second_nibble"]]
-        third_nibble = self.registers["v"][opcode_nibbles["third_nibble"]]
+        second_nibble = self.registers["v"][opcode_nibbles["second"]]
+        third_nibble = self.registers["v"][opcode_nibbles["third"]]
 
         borrow = False
         if (third_nibble > second_nibble):
@@ -591,11 +592,11 @@ class Chip8CPU:
             borrow = True
 
         third_nibble &= 0xFF
-        self.registers["v"][opcode_nibbles["second_nibble"]] = third_nibble
+        self.registers["v"][opcode_nibbles["second"]] = third_nibble
         
         self.registers["v"][0xF] = 0 if borrow else 1
 
-    def left_shift_reg(self, opcode_nibbles):
+    def left_shift_reg(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode 8xyE - SHL Vx {, Vy}
         
@@ -604,12 +605,12 @@ class Chip8CPU:
         """
 
         self.registers["v"][0xF] = \
-            (self.registers["v"][opcode_nibbles["second_nibble"]] & 0x80) >> 7
+            (self.registers["v"][opcode_nibbles["second"]] & 0x80) >> 7
             
-        self.registers["v"][opcode_nibbles["second_nibble"]] <<= 1
-        self.registers["v"][opcode_nibbles["second_nibble"]] &= 0xFF
+        self.registers["v"][opcode_nibbles["second"]] <<= 1
+        self.registers["v"][opcode_nibbles["second"]] &= 0xFF
 
-    def skip_reg_neq_reg(self, opcode_nibbles):
+    def skip_reg_neq_reg(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode 9xy0 - SNE Vx, Vy
         
@@ -617,52 +618,52 @@ class Chip8CPU:
         """
 
         if (
-            self.registers["v"][opcode_nibbles["second_nibble"]]
-            != self.registers["v"][opcode_nibbles["third_nibble"]]
+            self.registers["v"][opcode_nibbles["second"]]
+            != self.registers["v"][opcode_nibbles["third"]]
         ):
             self.registers["pc"] += 2
 
-    def ld_i(self, opcode_nibbles):
+    def ld_i(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode Annn - LD I, addr
         
         Load I with nnn.
         """
 
-        self.registers["i"] = opcode_nibbles["last_three_bits"]
+        self.registers["i"] = opcode_nibbles["last_three"]
 
-    def jmp_reg0_with_byte(self, opcode_nibbles):
+    def jmp_reg0_with_byte(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode Bnnn - JP V0, addr
         
         Jump to location nnn + V0.
         """
 
-        self.registers["pc"] = (opcode_nibbles["last_three_bits"]) + self.registers["v"][0x0]
+        self.registers["pc"] = (opcode_nibbles["last_three"]) + self.registers["v"][0x0]
         self.registers["pc"] &= 0xFFFF
         self.registers["pc"] -= 2
 
-    def store_rnd_anded_byte_to_reg(self, opcode_nibbles):
+    def store_rnd_anded_byte_to_reg(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode Cxkk - RND Vx, byte
         
         Set Vx to random byte ANDed with kk.
         """
 
-        self.registers["v"][opcode_nibbles["second_nibble"]] = (
-            random.randint(0, 255) & opcode_nibbles["last_byte"]
+        self.registers["v"][opcode_nibbles["second"]] = (
+            random.randint(0, 255) & opcode_nibbles["last_two"]
         )
 
-    def draw_bytes(self, opcode_nibbles):
+    def draw_bytes(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode Dxyn - DRW Vx, Vy, nibble
         
         Draws a sprite at coordinate (Vx, Vy) with width 8 pixels and height n pixels.
         """
 
-        num_bytes_to_draw = opcode_nibbles["fourth_nibble"]
-        x_pos = self.registers["v"][opcode_nibbles["second_nibble"]]
-        y_pos = self.registers["v"][opcode_nibbles["third_nibble"]]
+        num_bytes_to_draw = opcode_nibbles["fourth"]
+        x_pos = self.registers["v"][opcode_nibbles["second"]]
+        y_pos = self.registers["v"][opcode_nibbles["third"]]
 
         overwritten = False
 
@@ -675,25 +676,25 @@ class Chip8CPU:
 
         self.registers["v"][0xF] = 1 if overwritten else 0
 
-    def skip_on_keypress(self, opcode_nibbles):
+    def skip_on_keypress(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode Ex9E - SKP Vx
         
         Skip next instruction if key with the value of Vx is pressed.
         """
     
-        key = self.registers["v"][opcode_nibbles["second_nibble"]]
+        key = self.registers["v"][opcode_nibbles["second"]]
         if self.is_key_pressed(key):
             self.registers["pc"] += 2
         
-    def skip_on_not_keypress(self, opcode_nibbles):
+    def skip_on_not_keypress(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode ExA1 - SKNP Vx
         
         Skip next instruction if key with the value of Vx is not pressed.
         """
         
-        key = self.registers["v"][opcode_nibbles["second_nibble"]]
+        key = self.registers["v"][opcode_nibbles["second"]]
         if not self.is_key_pressed(key):
             self.registers["pc"] += 2
 
@@ -710,16 +711,16 @@ class Chip8CPU:
 
         return bool(keys_pressed[self.KEY_MAPPINGS[key]])
 
-    def ld_reg_with_dly_timer(self, opcode_nibbles):
+    def ld_reg_with_dly_timer(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode Fx07 - LD Vx, DT
         
         Load the value of DT into Vx.
         """
 
-        self.registers["v"][opcode_nibbles["second_nibble"]] = self.timers["delay"]
+        self.registers["v"][opcode_nibbles["second"]] = self.timers["delay"]
 
-    def wait_for_input(self, opcode_nibbles):
+    def wait_for_input(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode Fx0A - LD Vx, K
         
@@ -727,7 +728,7 @@ class Chip8CPU:
         """
         
         key_pressed = self.wait_and_get_key()
-        self.registers["v"][opcode_nibbles["second_nibble"]] = key_pressed
+        self.registers["v"][opcode_nibbles["second"]] = key_pressed
 
     def wait_and_get_key(self):
         """
@@ -745,49 +746,49 @@ class Chip8CPU:
                 if (event.type == pygame.KEYDOWN) and (event.key in self.KEY_MAPPINGS.values()):
                     return event.key
 
-    def ld_delay_timer_with_reg(self, opcode_nibbles):
+    def ld_delay_timer_with_reg(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode Fx15 - LD DT, Vx
         
         Set the delay timer to Vx.
         """
 
-        self.timers["delay"] = self.registers["v"][opcode_nibbles["second_nibble"]]
+        self.timers["delay"] = self.registers["v"][opcode_nibbles["second"]]
 
-    def ld_sound_timer_with_reg(self, opcode_nibbles):
+    def ld_sound_timer_with_reg(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode Fx18 - LD ST, Vx
         
         Set the sound timer to Vx.
         """
-        self.timers["sound"] = self.registers["v"][opcode_nibbles["second_nibble"]]
+        self.timers["sound"] = self.registers["v"][opcode_nibbles["second"]]
 
-    def add_i_with_reg(self, opcode_nibbles):
+    def add_i_with_reg(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode Fx1E - ADD I, Vx
         """
 
-        self.registers["i"] += self.registers["v"][opcode_nibbles["second_nibble"]]
+        self.registers["i"] += self.registers["v"][opcode_nibbles["second"]]
         self.registers["i"] &= 0xFFFF
 
-    def ld_i_font_sprite(self, opcode_nibbles):
+    def ld_i_font_sprite(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode Fx29 - LD F, Vx
         
         Set I to the location of the sprite for the character in Vx.
         """
         
-        sprite_char = self.registers["v"][opcode_nibbles["second_nibble"]]
+        sprite_char = self.registers["v"][opcode_nibbles["second"]]
         sprite_char_addr = self.FONT_ADDR_START + (sprite_char * 5)
 
-    def ld_i_bcd_of_reg(self, opcode_nibbles):
+    def ld_i_bcd_of_reg(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode Fx33 - LD B, Vx
         
         Load the BCD representation of Vx into memory locations I, I+1, and I+2.
         """
 
-        second_nibble = self.registers["v"][opcode_nibbles["second_nibble"]]
+        second_nibble = self.registers["v"][opcode_nibbles["second"]]
         
         # 100s places
         self.memory[self.registers["i"]] = (
@@ -804,27 +805,22 @@ class Chip8CPU:
             int(second_nibble % 10) & 0xFF
         )
 
-    def store_regs_at_i(self, opcode_nibbles):
+    def store_regs_at_i(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode Fx55 - LD [I], Vx
         
         Store registers V0 through Vx in memory starting at location I.
         """
 
-        for i in range(opcode_nibbles["second_nibble"] + 1):
+        for i in range(opcode_nibbles["second"] + 1):
             self.memory[self.registers["i"] + i] = self.registers["v"][i]
 
-    def ld_regs_at_i(self, opcode_nibbles):
+    def ld_regs_at_i(self, opcode_nibbles: Dict[str, int]):
         """
         Opcode Fx65 - LD Vx, [I]
         
         Load registers V0 through Vx from memory starting at location I.
         """
 
-        for i in range(opcode_nibbles["second_nibble"] + 1):
+        for i in range(opcode_nibbles["second"] + 1):
             self.registers["v"][i] = self.memory[self.registers["i"] + i]
-
-if __name__ == "__main__":
-    x = Chip8CPU()
-    x.load_rom("break.ch8")
-    x.main_loop()
