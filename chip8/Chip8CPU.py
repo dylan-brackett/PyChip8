@@ -248,13 +248,18 @@ class Chip8CPU:
         
         # Increase program counter
         self.registers["pc"] += 2
-      
+
     def get_opcode_nibble_dict(self, opcode):
         """
         Create dictionary of opcode nibbles and masked bits
         """
         
-        combined_opcode = (opcode[0] << 8 | opcode[1]) & 0xFFFF
+        # Check if opcode is array
+        if isinstance(opcode, list):
+            combined_opcode = (opcode[0] << 8 | opcode[1]) & 0xFFFF
+        else:
+            combined_opcode = opcode & 0xFFFF
+        
         opcode_nibbles = {
             "all"              : combined_opcode,
             "first"      : (combined_opcode & 0xF000) >> 12,
@@ -275,8 +280,9 @@ class Chip8CPU:
 
     def cpu_clock_delay(self):
         cur_tick = pygame.time.get_ticks()
-        if (cur_tick - self.clock_ticks) < self.CLOCK_SPEED:
-            pygame.time.delay(cur_tick - self.clock_ticks)
+        time_delta = cur_tick - self.clock_ticks
+        if time_delta < self.CLOCK_SPEED:
+            pygame.time.delay(self.CLOCK_SPEED - time_delta)
             self.clock_ticks = cur_tick
 
     def decrease_timers(self):
@@ -380,6 +386,7 @@ class Chip8CPU:
 
         self.display.clear_display()
         self.display.update_display()
+        
 
     def return_from_subrtn(self, opcode_nibbles=None):
         """
@@ -401,6 +408,7 @@ class Chip8CPU:
 
         self.registers["pc"] = opcode_nibbles["last_three"]
         self.registers["pc"] -= 2
+        
 
     def call_addr(self, opcode_nibbles: Dict[str, int]):
         """
@@ -413,6 +421,7 @@ class Chip8CPU:
         self.stack[self.registers["sp"]] = self.registers["pc"]
         self.registers["pc"] = opcode_nibbles["last_three"]
         self.registers["pc"] -= 2        
+        
 
     def skip_reg_eq_byte(self, opcode_nibbles: Dict[str, int]):
         """
@@ -423,6 +432,7 @@ class Chip8CPU:
 
         if self.registers["v"][opcode_nibbles["second"]] == opcode_nibbles["last_two"]:
             self.registers["pc"] += 2
+            
 
     def skip_reg_neq_byte(self, opcode_nibbles: Dict[str, int]):
         """
@@ -728,7 +738,11 @@ class Chip8CPU:
         """
         
         key_pressed = self.wait_and_get_key()
-        self.registers["v"][opcode_nibbles["second"]] = key_pressed
+        # Reverse dictionary lookup to find the key that corresponds to the pressed key
+        for key, value in self.KEY_MAPPINGS.items():
+            if key_pressed == value:
+                self.registers["v"][opcode_nibbles["second"]] = key
+                break
 
     def wait_and_get_key(self):
         """

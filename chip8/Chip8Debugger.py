@@ -6,7 +6,6 @@ This debugger will act similarly to gdb.
 import re
 import sys
 
-
 class Chip8Debugger:
     def __init__(self, Chip8CPU):
         self.chip8 = Chip8CPU
@@ -26,6 +25,8 @@ class Chip8Debugger:
         
         opcode = self.get_opcode()
         self.hex_print(self.chip8.registers["pc"], opcode)
+        print("\t", end="")
+        self.print_disassembly(opcode)
         
         self.halt = self.should_halt()
         
@@ -42,7 +43,71 @@ class Chip8Debugger:
         return self.chip8.memory[self.chip8.registers["pc"]] << 8 | self.chip8.memory[self.chip8.registers["pc"] + 1]
 
     def hex_print(self, addr, opcode):
-        print("0x%04X\t%04X" % (addr, opcode))
+        print("0x%04X\t%04X" % (addr, opcode), end="")
+        
+    def print_disassembly(self, opcode):
+        """
+        Print the disassembly of the given opcode.
+        """
+        
+        print(self.opcode_lookup(opcode))
+        
+    def opcode_lookup(self, opcode):
+        
+        # Really ugly way to do this, but it works.
+        
+        disasm_string = ""
+        nibble_dict = self.chip8.get_opcode_nibble_dict(opcode)
+        if nibble_dict["first"] == 0x0:
+            if nibble_dict["last_two"] == 0xE0:
+                disasm_string = "CLS"
+            elif nibble_dict["last_two"] == 0xEE:
+                disasm_string = "RET"
+        elif nibble_dict["first"] == 0x1:
+            disasm_string = "JP " + self.to_hex_str(nibble_dict["last_three"])
+        elif nibble_dict["first"] == 0x2:
+            disasm_string = "CALL " + self.to_hex_str(nibble_dict["last_three"])
+        elif nibble_dict["first"] == 0x3:
+            reg_val = self.chip8.registers["v"][nibble_dict["second"]]
+            disasm_string = "SE V" + str(nibble_dict["second"]) + "(" + self.to_hex_str(reg_val) + ") == " + self.to_hex_str(nibble_dict["last_two"])
+        elif nibble_dict["first"] == 0x4:
+            reg_val = self.chip8.registers["v"][nibble_dict["second"]]
+            disasm_string = "SNE V" + str(nibble_dict["second"]) + "(" + self.to_hex_str(reg_val) + ") != " + self.to_hex_str(nibble_dict["last_two"])
+        elif nibble_dict["first"] == 0x5:
+            reg_val1 = self.chip8.registers["v"][nibble_dict["second"]]
+            reg_val2 = self.chip8.registers["v"][nibble_dict["third"]]
+            disasm_string = "SE V" + str(nibble_dict["second"]) + "(" + self.to_hex_str(reg_val1) + ") == V" + str(nibble_dict["third"]) + "(" + self.to_hex_str(reg_val2) + ")"
+        elif nibble_dict["first"] == 0x6:
+            disasm_string = "LD V" + str(nibble_dict["second"]) + " " + self.to_hex_str(nibble_dict["last_two"])
+        elif nibble_dict["first"] == 0x7:
+            reg_val = self.chip8.registers["v"][nibble_dict["second"]]
+            disasm_string = "ADD V" + str(nibble_dict["second"]) + "(" + self.to_hex_str(reg_val) + ") + " + self.to_hex_str(nibble_dict["last_two"])
+        elif nibble_dict["first"] == 0x8:
+            if nibble_dict["fourth"] == 0x0:
+                reg_val1 = self.chip8.registers["v"][nibble_dict["second"]]
+                reg_val2 = self.chip8.registers["v"][nibble_dict["third"]]
+                disasm_string = "LD V" + str(nibble_dict["second"]) + "(" + self.to_hex_str(reg_val1) + ") V" + str(nibble_dict["third"]) + "(" + self.to_hex_str(reg_val2) + ")"
+            elif nibble_dict["fourth"] == 0x1:
+                reg_val1 = self.chip8.registers["v"][nibble_dict["second"]]
+                reg_val2 = self.chip8.registers["v"][nibble_dict["third"]]
+                disasm_string = "OR V" + str(nibble_dict["second"]) + "(" + self.to_hex_str(reg_val1) + ") V" + str(nibble_dict["third"]) + "(" + self.to_hex_str(reg_val2) + ")"
+            elif nibble_dict["fourth"] == 0x2:
+                reg_val1 = self.chip8.registers["v"][nibble_dict["second"]]
+                reg_val2 = self.chip8.registers["v"][nibble_dict["third"]]
+                disasm_string = "AND V" + str(nibble_dict["second"]) + "(" + self.to_hex_str(reg_val1) + ") V" + str(nibble_dict["third"]) + "(" + self.to_hex_str(reg_val2) + ")"
+        
+        return disasm_string
+            
+    def to_hex_str(self, number):
+        """
+        Convert a number to a hex string.
+        
+        :param number: The number to convert.
+        :return: The hex string.
+        """
+        
+        return "0x%04X" % number
+            
 
     def should_halt(self):
         """
